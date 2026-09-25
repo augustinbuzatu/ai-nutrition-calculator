@@ -1,0 +1,4 @@
+# Store and check out every text file with LF line endings, on every OS.
+# Without this, Git for Windows converts LF to CRLF on checkout and
+# formatters/linters report every file as changed.
+* text=auto eol=lf
