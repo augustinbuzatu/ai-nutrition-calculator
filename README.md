@@ -1,5 +1,7 @@
 # AI Nutrition Calculator
 
+[![CI](https://github.com/augustinbuzatu/ai-nutrition-calculator/actions/workflows/ci.yml/badge.svg)](https://github.com/augustinbuzatu/ai-nutrition-calculator/actions/workflows/ci.yml)
+
 Log your meals in plain language, in English or Romanian, and get accurate calories and macros.
 
 > _"I had 150 g of grilled chicken breast and 200 g of cooked rice"_
@@ -16,19 +18,32 @@ LLMs are great at understanding language and bad at arithmetic, so this app spli
 
 ## Tech stack
 
-- **Now:** Next.js 16 (App Router, React Compiler) · TypeScript · Tailwind CSS v4 · ESLint
-- **Planned:** Supabase (PostgreSQL, Auth, Row Level Security) · Vercel AI SDK + OpenAI · Vitest · GitHub Actions · Vercel
+- **Now:** Next.js 16 (App Router, React Compiler) · TypeScript · Tailwind CSS v4 · shadcn/ui · Vitest · ESLint · Prettier · GitHub Actions
+- **Planned:** Supabase (PostgreSQL, Auth, Row Level Security) · Vercel AI SDK + OpenAI · Vercel
 
 ## Getting started
 
 Requires Node.js 20.9 or newer.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
 Then open [http://localhost:3000](http://localhost:3000).
+
+## Scripts
+
+| Command             | What it does                                                        |
+| ------------------- | ------------------------------------------------------------------- |
+| `npm run dev`       | Starts the development server with hot reload                       |
+| `npm run build`     | Creates the production build                                        |
+| `npm run lint`      | Runs ESLint                                                         |
+| `npm run typecheck` | Generates route types, then runs the TypeScript compiler            |
+| `npm test`          | Runs the unit tests once (`npm run test:watch` reruns them on save) |
+| `npm run format`    | Formats every file with Prettier (`format:check` only checks)       |
+
+CI runs `format:check`, `lint`, `typecheck`, `test` and `build` on every push and pull request.
 
 ## Status
 
