@@ -18,8 +18,8 @@ LLMs are great at understanding language and bad at arithmetic, so this app spli
 
 ## Tech stack
 
-- **Now:** Next.js 16 (App Router, React Compiler) · TypeScript · Tailwind CSS v4 · shadcn/ui · Vitest · ESLint · Prettier · GitHub Actions
-- **Planned:** Supabase (PostgreSQL, Auth, Row Level Security) · Vercel AI SDK + OpenAI · Vercel
+- **Now:** Next.js 16 (App Router, React Compiler) · TypeScript · Tailwind CSS v4 · shadcn/ui · Zod · PostgreSQL schema with Row Level Security (Supabase migrations) · Vitest · PGlite · ESLint · Prettier · GitHub Actions
+- **Planned:** Supabase Auth and hosting · Vercel AI SDK + OpenAI · Vercel
 
 ## Getting started
 
@@ -44,6 +44,16 @@ Then open [http://localhost:3000](http://localhost:3000).
 | `npm run format`    | Formats every file with Prettier (`format:check` only checks)       |
 
 CI runs `format:check`, `lint`, `typecheck`, `test` and `build` on every push and pull request.
+
+## Database
+
+The schema lives in `supabase/migrations/` as plain SQL, versioned with the code:
+
+- `profiles`: one per user, created at sign-up; daily goals stay empty until onboarding.
+- `foods`: nutrition facts as published (per 100 g, per 100 ml or per serving), either in the shared catalog or private to one user.
+- `food_entries`: the food diary, stored as snapshots so later catalog edits never rewrite history.
+
+Row Level Security limits every query to the signed-in user's own rows. `supabase/tests/` runs the migrations in [PGlite](https://pglite.dev) (Postgres in WebAssembly) and checks those rules on every CI run, with no Docker or Supabase project needed.
 
 ## Status
 
