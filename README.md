@@ -18,19 +18,36 @@ LLMs are great at understanding language and bad at arithmetic, so this app spli
 
 ## Tech stack
 
-- **Now:** Next.js 16 (App Router, React Compiler) · TypeScript · Tailwind CSS v4 · shadcn/ui · Zod · PostgreSQL schema with Row Level Security (Supabase migrations) · Vitest · PGlite · ESLint · Prettier · GitHub Actions
-- **Planned:** Supabase Auth and hosting · Vercel AI SDK + OpenAI · Vercel
+- **Now:** Next.js 16 (App Router, Server Actions, React Compiler) · TypeScript · Tailwind CSS v4 · shadcn/ui · Zod · Supabase (PostgreSQL with Row Level Security, Auth with email and password) · Vitest · PGlite · ESLint · Prettier · GitHub Actions
+- **Planned:** Google sign-in · Vercel AI SDK + OpenAI · Vercel
 
 ## Getting started
 
-Requires Node.js 20.9 or newer.
+Requires Node.js 20.9 or newer and a [Supabase](https://supabase.com) project (the free plan is enough).
 
-```bash
-npm ci
-npm run dev
-```
+1. Install the dependencies:
 
-Then open [http://localhost:3000](http://localhost:3000).
+   ```bash
+   npm ci
+   ```
+
+2. Create the tables in your Supabase project:
+
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <your-project-ref>
+   npx supabase db push
+   ```
+
+3. Copy `.env.example` to `.env.local` and fill in your project's URL and **publishable** key (Dashboard → Project Settings → API Keys). Never use the secret key here.
+
+4. In the dashboard, under Authentication → URL Configuration, set the Site URL to `http://localhost:3000` and add `http://localhost:3000/**` to the Redirect URLs, so the link in the confirmation email can come back to the app.
+
+5. Start the app and open [http://localhost:3000](http://localhost:3000):
+
+   ```bash
+   npm run dev
+   ```
 
 ## Scripts
 
@@ -42,6 +59,7 @@ Then open [http://localhost:3000](http://localhost:3000).
 | `npm run typecheck` | Generates route types, then runs the TypeScript compiler            |
 | `npm test`          | Runs the unit tests once (`npm run test:watch` reruns them on save) |
 | `npm run format`    | Formats every file with Prettier (`format:check` only checks)       |
+| `npm run db:types`  | Regenerates the database types from the linked Supabase project     |
 
 CI runs `format:check`, `lint`, `typecheck`, `test` and `build` on every push and pull request.
 
@@ -54,6 +72,18 @@ The schema lives in `supabase/migrations/` as plain SQL, versioned with the code
 - `food_entries`: the food diary, stored as snapshots so later catalog edits never rewrite history.
 
 Row Level Security limits every query to the signed-in user's own rows. `supabase/tests/` runs the migrations in [PGlite](https://pglite.dev) (Postgres in WebAssembly) and checks those rules on every CI run, with no Docker or Supabase project needed.
+
+`src/lib/supabase/database.types.ts` is generated from the schema (`npm run db:types`), so a typo in a table or column name fails the type check instead of failing at runtime.
+
+## Authentication
+
+Email and password sign-in with Supabase Auth, kept in cookies so Server Components can read the session:
+
+- `src/proxy.ts` runs before every page: it refreshes the session and sends visitors who are not signed in to `/login`.
+- Sign-in, sign-up and sign-out are Server Actions that validate their input with Zod on the server.
+- New accounts confirm their email first; the link lands on `/auth/confirm`, which exchanges its one-time code for a session.
+
+The proxy is a convenience, not the security boundary: the database checks every query with Row Level Security, whatever the app does.
 
 ## Status
 
