@@ -87,4 +87,9 @@ The proxy is a convenience, not the security boundary: the database checks every
 
 ## Status
 
-Work in progress: Phase 1 (MVP).
+Work in progress: Phase 1 (MVP). What works today:
+
+- Sign up and sign in with email and password.
+- Onboarding: at first sign-in, users set their daily calorie and protein goals (and can change them later). The dashboard shows them.
+
+Next: logging meals in plain language.
