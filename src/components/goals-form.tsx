@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
+import { GoalsCalculator } from "@/components/goals-calculator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,38 +25,69 @@ export function GoalsForm({ initialGoals, submitLabel }: GoalsFormProps) {
   const [protein, setProtein] = useState(
     initialGoals.protein?.toString() ?? "",
   );
+  const [usedEstimate, setUsedEstimate] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Fills the fields, but does not save: the user reviews the numbers first.
+  function applyEstimate(goals: { kcal: number; protein: number }) {
+    setKcal(String(goals.kcal));
+    setProtein(String(goals.protein));
+    setUsedEstimate(true);
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    formRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
-      <GoalField
-        name="kcal"
-        label="Calories"
-        unit="kcal"
-        value={kcal}
-        onChange={setKcal}
-        errors={state.fieldErrors?.kcal}
-        {...GOAL_LIMITS.kcal}
-      />
-      <GoalField
-        name="protein"
-        label="Protein"
-        unit="g"
-        value={protein}
-        onChange={setProtein}
-        errors={state.fieldErrors?.protein}
-        {...GOAL_LIMITS.protein}
-      />
+    <>
+      <form
+        ref={formRef}
+        action={formAction}
+        // scroll-mt: room for the sticky header when scrolled into view.
+        className="flex scroll-mt-20 flex-col gap-4"
+      >
+        <GoalField
+          name="kcal"
+          label="Calories"
+          unit="kcal"
+          value={kcal}
+          onChange={setKcal}
+          errors={state.fieldErrors?.kcal}
+          {...GOAL_LIMITS.kcal}
+        />
+        <GoalField
+          name="protein"
+          label="Protein"
+          unit="g"
+          value={protein}
+          onChange={setProtein}
+          errors={state.fieldErrors?.protein}
+          {...GOAL_LIMITS.protein}
+        />
 
-      {state.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
+        {usedEstimate && (
+          <p role="status" className="text-sm text-muted-foreground">
+            Filled in from your estimate. Adjust them if you like, then save.
+          </p>
+        )}
 
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Saving…" : submitLabel}
-      </Button>
-    </form>
+        {state.error && (
+          <p role="alert" className="text-sm text-destructive">
+            {state.error}
+          </p>
+        )}
+
+        <Button type="submit" size="lg" disabled={pending}>
+          {pending ? "Saving…" : submitLabel}
+        </Button>
+      </form>
+
+      {/* Outside the form: its fields are not goals, and pressing Enter in
+          them must not submit the goals. */}
+      <GoalsCalculator onUse={applyEstimate} />
+    </>
   );
 }
 

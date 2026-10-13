@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Calculator } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { GoalsForm } from "@/components/goals-form";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { getGoals } from "@/lib/goals/queries";
 import { hasGoals } from "@/lib/goals/schema";
 import { cn } from "@/lib/utils";
@@ -36,8 +35,6 @@ export default async function GoalsPage() {
         submitLabel={isOnboarding ? "Start tracking" : "Save goals"}
       />
 
-      <CalculatorTeaser />
-
       {!isOnboarding && (
         <Link
           href="/"
@@ -48,28 +45,5 @@ export default async function GoalsPage() {
         </Link>
       )}
     </div>
-  );
-}
-
-/** Task 3.2 will turn this into a calculator (Mifflin-St Jeor equation). */
-function CalculatorTeaser() {
-  return (
-    <Card size="sm">
-      <CardContent className="flex gap-3">
-        <Calculator className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-        <div className="grid gap-1">
-          <p className="flex flex-wrap items-center gap-2 font-medium">
-            Not sure what to aim for?
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
-              Coming soon
-            </span>
-          </p>
-          <p className="text-muted-foreground">
-            The app will estimate your goals from your age, height, weight and
-            activity level.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
