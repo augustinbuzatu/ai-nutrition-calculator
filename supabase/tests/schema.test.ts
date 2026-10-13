@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { PGlite, Transaction } from "@electric-sql/pglite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { GOAL_LIMITS } from "@/lib/goals/limits";
 import {
   asAnonymous,
   asUser,
@@ -74,15 +75,29 @@ describe("profiles", () => {
     expect((await setGoal(bob)).affectedRows).toBe(0);
   });
 
-  it("reject goals outside a realistic range", async () => {
+  it("accept exactly the goal ranges the app validates (GOAL_LIMITS)", async () => {
     const alice = await createUser(db);
-    const update = asUser(db, alice, (tx) =>
-      tx.query(
-        "update public.profiles set daily_kcal_goal = 50 where id = $1",
-        [alice],
-      ),
-    );
-    await expect(update).rejects.toThrow(/check constraint/);
+    const setGoals = (kcal: number, protein: number) =>
+      asUser(db, alice, (tx) =>
+        tx.query(
+          `update public.profiles
+           set daily_kcal_goal = $1, daily_protein_goal = $2
+           where id = $3`,
+          [kcal, protein, alice],
+        ),
+      );
+    const { kcal, protein } = GOAL_LIMITS;
+
+    expect((await setGoals(kcal.min, protein.min)).affectedRows).toBe(1);
+    expect((await setGoals(kcal.max, protein.max)).affectedRows).toBe(1);
+    for (const [k, p] of [
+      [kcal.min - 1, protein.min],
+      [kcal.max + 1, protein.min],
+      [kcal.min, protein.min - 1],
+      [kcal.min, protein.max + 1],
+    ]) {
+      await expect(setGoals(k, p)).rejects.toThrow(/check constraint/);
+    }
   });
 });
 
