@@ -29,9 +29,11 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `src/proxy.ts`: Next 16's name for middleware. Refreshes the Supabase session and sends signed-out visitors to `/login` (rules in `src/lib/auth/routes.ts`).
 - `src/lib/supabase/`: `createClient()` for the server, env config, generated database types.
 - `src/lib/auth/`: Server Actions (sign in, sign up, sign out), credential validation and error messages, `getCurrentUser()` / `requireUser()`.
+- `src/lib/profile.ts`: `getProfile()` (goals and time zone), cached per request.
 - `src/lib/goals/`: limits (mirror the DB constraints), Zod schema, `getGoals()`, `saveGoals()`, and `estimate.ts` (Mifflin-St Jeor calculator, browser only).
-- `src/lib/nutrition/`: food schemas, nutrient scaling (`calculate.ts`), plausibility checks (`check.ts`: physical limits, Atwater 4/4/9).
-- `src/app/`: `/` dashboard (redirects to `/goals` until both goals are set), `/goals`, `/login`, `/signup`, `/auth/confirm` (PKCE code exchange), `/log` (placeholder).
+- `src/lib/diary/`: `todayIn()` (today's date in the user's time zone), progress status for the stat tiles, `getTodaysDiary()`.
+- `src/lib/nutrition/`: food schemas, nutrient scaling and summing (`calculate.ts`), plausibility checks (`check.ts`: physical limits, Atwater 4/4/9).
+- `src/app/`: `/` dashboard (today's totals and meals; redirects to `/goals` until both goals are set), `/goals`, `/login`, `/signup`, `/auth/confirm` (PKCE code exchange), `/log` (placeholder).
 - `supabase/migrations/`: schema as SQL. `supabase/tests/`: RLS and constraint tests in PGlite.
 
 ## Conventions
@@ -58,6 +60,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Stay on ESLint 9: `eslint-plugin-react` breaks on ESLint 10.
 - In Playwright, `[role=alert]` also matches Next's route announcer, and `button[type=submit]` matches the header's Sign out button: scope selectors to `main`.
 - `pkill -f "next dev"` also kills the shell running it: stop processes by PID.
+- The server runs in UTC: compute "today" with `todayIn(timeZone)`, never from `new Date().toISOString()`.
+- `formatNumber` shows at most 3 decimals, which already hides floating-point noise; round to display precision with `roundNutrients` after summing.
 
 ## Verifying changes
 
@@ -78,8 +82,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Stage 2, schema with RLS and email sign-in.
   - Task 3.1, onboarding with daily goals.
   - Task 3.2, goals calculator.
+  - Task 3.3, dashboard progress and today's meal list from real entries.
 - Stage 3:
-  - 3.3: dashboard progress and today's meal list from real entries.
   - 3.4: add, edit and delete meals manually (works without AI).
 - Stage 4, AI parser:
   - 4.1: AI SDK + OpenAI with a parser schema.

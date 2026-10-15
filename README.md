@@ -92,5 +92,6 @@ Work in progress: Phase 1 (MVP). What works today:
 - Sign up and sign in with email and password.
 - Onboarding: at first sign-in, users set their daily calorie and protein goals (and can change them later). The dashboard shows them.
 - A goals calculator estimates both from age, height, weight and activity (Mifflin-St Jeor equation). It runs in the browser and saves nothing.
+- The dashboard shows today's calories and protein against the goals, with progress bars, and lists today's meals. "Today" follows the user's time zone, not the server's.
 
-Next: logging meals in plain language.
+Next: adding, editing and deleting meals by hand, then logging them in plain language.
