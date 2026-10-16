@@ -52,6 +52,19 @@ export function scaleNutrients(
   };
 }
 
+/** Adds up the nutrients of several foods, for example a day's meals. */
+export function sumNutrients(list: readonly Nutrients[]): Nutrients {
+  return list.reduce(
+    (total, n) => ({
+      kcal: total.kcal + n.kcal,
+      proteinG: total.proteinG + n.proteinG,
+      carbsG: total.carbsG + n.carbsG,
+      fatG: total.fatG + n.fatG,
+    }),
+    { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 },
+  );
+}
+
 /** Display precision: whole kcal, macros to 0.1 g. */
 export function roundNutrients(nutrients: Nutrients): Nutrients {
   return {

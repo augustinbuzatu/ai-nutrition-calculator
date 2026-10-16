@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateNutrients, roundNutrients } from "./calculate";
+import { calculateNutrients, roundNutrients, sumNutrients } from "./calculate";
 import type { Nutrients, NutritionFacts, Quantity } from "./schemas";
 
 // Typical published values, rounded. Only the arithmetic is under test here.
@@ -129,5 +129,31 @@ describe("calculateNutrients", () => {
         error: { code: "unit-mismatch", eaten: "volume", published: "mass" },
       });
     });
+  });
+});
+
+describe("sumNutrients", () => {
+  it("adds up every nutrient", () => {
+    expect(
+      sumNutrients([
+        { kcal: 247.5, proteinG: 46.5, carbsG: 0, fatG: 5.4 },
+        { kcal: 260, proteinG: 5.4, carbsG: 56.4, fatG: 0.6 },
+      ]),
+    ).toEqual({ kcal: 507.5, proteinG: 51.9, carbsG: 56.4, fatG: 6 });
+  });
+
+  it("is all zeros for a day with no meals", () => {
+    expect(sumNutrients([])).toEqual({
+      kcal: 0,
+      proteinG: 0,
+      carbsG: 0,
+      fatG: 0,
+    });
+  });
+
+  it("adds before rounding: rounding each meal first would lose 1 kcal here", () => {
+    const meal = { kcal: 33.4, proteinG: 0, carbsG: 0, fatG: 0 };
+    // 33 + 33 + 33 = 99 if each meal were rounded; 100.2 rounds to 100.
+    expect(roundNutrients(sumNutrients([meal, meal, meal])).kcal).toBe(100);
   });
 });

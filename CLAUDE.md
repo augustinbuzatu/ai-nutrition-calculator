@@ -10,7 +10,7 @@ Augustin's personal and portfolio project (Cybernetics student, ASE Bucharest; w
 - Act as a senior full-stack developer and mentor: write the code step by step and explain the decisions. Mark notes with 🎯 (worth remembering), ⚠️ (pitfall) and 💼 (interview angle).
 - Propose major changes before making them. "Treci la următorul PR/merge" means: implement the next roadmap task and open a PR. The PR is the approval gate.
 - One PR per task, from the branch the session assigns, into `main`. Augustin merges, preferably with "Rebase and merge". Reset the branch onto `origin/main` before each new task.
-- Commits: Conventional Commits, small and topical, author `Augustin <augustinbuzatu@gmail.com>`, no `Co-Authored-By` trailer. No Claude footer in PR descriptions.
+- Commits: Conventional Commits, small and topical, with `Augustin <augustinbuzatu@gmail.com>` as the only author and no trailers. PR descriptions end after the testing section, with no footer.
 - Never schedule check-ins (`send_later`, triggers) or subscribe to PR activity: they cost money. Augustin says when he has merged.
 - Never ask for keys, tokens or passwords in the chat. The `sb_secret_` key never goes into code, `NEXT_PUBLIC_` variables, the chat or GitHub. `.env.local` is gitignored.
 
@@ -29,9 +29,11 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `src/proxy.ts`: Next 16's name for middleware. Refreshes the Supabase session and sends signed-out visitors to `/login` (rules in `src/lib/auth/routes.ts`).
 - `src/lib/supabase/`: `createClient()` for the server, env config, generated database types.
 - `src/lib/auth/`: Server Actions (sign in, sign up, sign out), credential validation and error messages, `getCurrentUser()` / `requireUser()`.
+- `src/lib/profile.ts`: `getProfile()` (goals and time zone), cached per request.
 - `src/lib/goals/`: limits (mirror the DB constraints), Zod schema, `getGoals()`, `saveGoals()`, and `estimate.ts` (Mifflin-St Jeor calculator, browser only).
-- `src/lib/nutrition/`: food schemas, nutrient scaling (`calculate.ts`), plausibility checks (`check.ts`: physical limits, Atwater 4/4/9).
-- `src/app/`: `/` dashboard (redirects to `/goals` until both goals are set), `/goals`, `/login`, `/signup`, `/auth/confirm` (PKCE code exchange), `/log` (placeholder).
+- `src/lib/diary/`: `todayIn()` (today's date in the user's time zone), progress status for the stat tiles, `getTodaysDiary()`.
+- `src/lib/nutrition/`: food schemas, nutrient scaling and summing (`calculate.ts`), plausibility checks (`check.ts`: physical limits, Atwater 4/4/9).
+- `src/app/`: `/` dashboard (today's totals and meals; redirects to `/goals` until both goals are set), `/goals`, `/login`, `/signup`, `/auth/confirm` (PKCE code exchange), `/log` (placeholder).
 - `supabase/migrations/`: schema as SQL. `supabase/tests/`: RLS and constraint tests in PGlite.
 
 ## Conventions
@@ -58,6 +60,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Stay on ESLint 9: `eslint-plugin-react` breaks on ESLint 10.
 - In Playwright, `[role=alert]` also matches Next's route announcer, and `button[type=submit]` matches the header's Sign out button: scope selectors to `main`.
 - `pkill -f "next dev"` also kills the shell running it: stop processes by PID.
+- The server runs in UTC: compute "today" with `todayIn(timeZone)`, never from `new Date().toISOString()`.
+- `formatNumber` shows at most 3 decimals, which already hides floating-point noise; round to display precision with `roundNutrients` after summing.
 
 ## Verifying changes
 
@@ -78,8 +82,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Stage 2, schema with RLS and email sign-in.
   - Task 3.1, onboarding with daily goals.
   - Task 3.2, goals calculator.
+  - Task 3.3, dashboard progress and today's meal list from real entries.
 - Stage 3:
-  - 3.3: dashboard progress and today's meal list from real entries.
   - 3.4: add, edit and delete meals manually (works without AI).
 - Stage 4, AI parser:
   - 4.1: AI SDK + OpenAI with a parser schema.
