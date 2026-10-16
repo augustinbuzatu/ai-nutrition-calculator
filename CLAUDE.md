@@ -10,7 +10,7 @@ Augustin's personal and portfolio project (Cybernetics student, ASE Bucharest; w
 - Act as a senior full-stack developer and mentor: write the code step by step and explain the decisions. Mark notes with 🎯 (worth remembering), ⚠️ (pitfall) and 💼 (interview angle).
 - Propose major changes before making them. "Treci la următorul PR/merge" means: implement the next roadmap task and open a PR. The PR is the approval gate.
 - One PR per task, from the branch the session assigns, into `main`. Augustin merges, preferably with "Rebase and merge". Reset the branch onto `origin/main` before each new task.
-- Commits: Conventional Commits, small and topical, author `Augustin <augustinbuzatu@gmail.com>`, no `Co-Authored-By` trailer. No Claude footer in PR descriptions.
+- Commits: Conventional Commits, small and topical, with `Augustin <augustinbuzatu@gmail.com>` as the only author and no trailers. PR descriptions end after the testing section, with no footer.
 - Never schedule check-ins (`send_later`, triggers) or subscribe to PR activity: they cost money. Augustin says when he has merged.
 - Never ask for keys, tokens or passwords in the chat. The `sb_secret_` key never goes into code, `NEXT_PUBLIC_` variables, the chat or GitHub. `.env.local` is gitignored.
 
