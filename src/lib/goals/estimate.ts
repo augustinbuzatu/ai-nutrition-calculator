@@ -1,3 +1,4 @@
+import { isKeyOf, parseNumberInput } from "@/lib/input";
 import { GOAL_LIMITS } from "./limits";
 
 export type Sex = "male" | "female";
@@ -159,20 +160,8 @@ function parseNumber(
   kind: "whole" | "decimal",
   { min, max }: { min: number; max: number },
 ): number | null | "invalid" {
-  const trimmed = text.trim();
-  if (trimmed === "") return null;
-  // A decimal comma is accepted: "72,5" is how weight is written in Romania.
-  // (No thousands separator can be meant here: no one weighs 1,000 kg.)
-  const pattern = kind === "whole" ? /^\d+$/ : /^\d+([.,]\d+)?$/;
-  if (!pattern.test(trimmed)) return "invalid";
-  const value = Number(trimmed.replace(",", "."));
-  return value >= min && value <= max ? value : "invalid";
-}
-
-/** Object.hasOwn, not `in`: "toString" in {} is true, inherited from Object. */
-function isKeyOf<T extends object>(
-  value: string,
-  object: T,
-): value is Extract<keyof T, string> {
-  return Object.hasOwn(object, value);
+  const value = parseNumberInput(text, kind);
+  if (value === "empty") return null;
+  if (typeof value === "string" || value < min || value > max) return "invalid";
+  return value;
 }
