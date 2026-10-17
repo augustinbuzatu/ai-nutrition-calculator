@@ -32,14 +32,17 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `src/lib/profile.ts`: `getProfile()` (goals and time zone), cached per request.
 - `src/lib/goals/`: limits (mirror the DB constraints), Zod schema, `getGoals()`, `saveGoals()`, and `estimate.ts` (Mifflin-St Jeor calculator, browser only).
 - `src/lib/diary/`: `todayIn()` (today's date in the user's time zone), progress status for the stat tiles, `getTodaysDiary()`.
+- `src/lib/meals/`: the meal form's rules (`form.ts`, shared by the browser preview and the server), `getMeal()`, and the `addMeal` / `updateMeal` / `deleteMeal` Server Actions.
+- `src/lib/input.ts`: `parseNumberInput()` (strict numbers, decimal comma) and `isKeyOf()`.
+- `src/components/form-field.tsx`: `FormField` and `describedBy()`, used by every form.
 - `src/lib/nutrition/`: food schemas, nutrient scaling and summing (`calculate.ts`), plausibility checks (`check.ts`: physical limits, Atwater 4/4/9).
-- `src/app/`: `/` dashboard (today's totals and meals; redirects to `/goals` until both goals are set), `/goals`, `/login`, `/signup`, `/auth/confirm` (PKCE code exchange), `/log` (placeholder).
+- `src/app/`: `/` dashboard (today's totals and meals; redirects to `/goals` until both goals are set), `/goals`, `/login`, `/signup`, `/auth/confirm` (PKCE code exchange), `/log` (add a meal), `/meals/[id]` (edit or delete one).
 - `supabase/migrations/`: schema as SQL. `supabase/tests/`: RLS and constraint tests in PGlite.
 
 ## Conventions
 
 - Domain logic is pure functions with unit tests. Prefer result types (`{ ok: true, … } | { ok: false, … }`) over exceptions. Round only for display.
-- Server Actions are public endpoints: call `requireUser()` and validate with Zod on the server. Data functions check auth themselves; the proxy is a convenience and RLS is the security boundary.
+- Server Actions are public endpoints: call `requireUser()` and validate on the server, with Zod or with the plain parsers a form shares with the browser (`src/lib/meals/form.ts`). Data functions check auth themselves; the proxy is a convenience and RLS is the security boundary.
 - Every table has RLS, grants follow least privilege, and policies use `(select auth.uid())`. App limits mirror DB check constraints, and a PGlite test ties the two together.
 - Data functions return only the fields pages need, with app names, not column names.
 - Forms use `useActionState` with a Server Action. Fields that must survive an error are controlled: React resets forms after submit, and Base UI warns when `defaultValue` changes.
@@ -62,6 +65,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `pkill -f "next dev"` also kills the shell running it: stop processes by PID.
 - The server runs in UTC: compute "today" with `todayIn(timeZone)`, never from `new Date().toISOString()`.
 - `formatNumber` shows at most 3 decimals, which already hides floating-point noise; round to display precision with `roundNutrients` after summing.
+- "1,200" in a decimal field could be 1200 or 1.2: `parseNumberInput` returns `"ambiguous"` and the form asks.
+- Keep a number and its unit together with a non-breaking space (`\u00a0`), or "7.2" and "g" can wrap apart.
 
 ## Verifying changes
 
@@ -83,8 +88,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Task 3.1, onboarding with daily goals.
   - Task 3.2, goals calculator.
   - Task 3.3, dashboard progress and today's meal list from real entries.
-- Stage 3:
-  - 3.4: add, edit and delete meals manually (works without AI).
+  - Task 3.4, add, edit and delete meals manually (works without AI).
 - Stage 4, AI parser:
   - 4.1: AI SDK + OpenAI with a parser schema.
   - 4.2: the "+" button turns text into editable confirmation cards, then saves them.

@@ -5,7 +5,7 @@ import type { Nutrients, NutritionFacts } from "./schemas";
 export const KCAL_PER_GRAM = { protein: 4, carbs: 4, fat: 9 } as const;
 
 /** Pure fat has about 900 kcal per 100 g; the margin absorbs rounding in published tables. */
-const MAX_KCAL_PER_100G = 950;
+export const MAX_KCAL_PER_100G = 950;
 /** Protein, carbs and fat together cannot outweigh the food; 2 g of margin for rounding. */
 const MAX_MACRO_GRAMS_PER_100G = 102;
 /** How far published kcal may drift from kcal computed from macros (fibre, rounding). */
