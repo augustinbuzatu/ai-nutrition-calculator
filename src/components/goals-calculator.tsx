@@ -1,15 +1,14 @@
 "use client";
 
-import {
-  type ChangeEvent,
-  type ComponentProps,
-  type ReactNode,
-  useState,
-} from "react";
+import { type ChangeEvent, useState } from "react";
 import { Calculator, ChevronDown } from "lucide-react";
+import { FormField, describedBy } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { formatNumber } from "@/lib/format";
 import {
   ACTIVITY_LEVELS,
@@ -67,26 +66,36 @@ export function GoalsCalculator({ onUse }: GoalsCalculatorProps) {
       </summary>
 
       <div className="grid gap-4 border-t p-4">
-        <Field
+        <FormField
           id="calc-sex"
           label="Sex"
           hint="The equation differs for men and women."
         >
-          <Select id="calc-sex" value={fields.sex} onChange={update("sex")}>
-            <option value="" disabled>
+          <NativeSelect
+            className="w-full"
+            id="calc-sex"
+            value={fields.sex}
+            onChange={update("sex")}
+            {...describedBy(
+              "calc-sex",
+              undefined,
+              "The equation differs for men and women.",
+            )}
+          >
+            <NativeSelectOption value="" disabled>
               Choose…
-            </option>
+            </NativeSelectOption>
             {Object.entries(SEXES).map(([value, label]) => (
-              <option key={value} value={value}>
+              <NativeSelectOption key={value} value={value}>
                 {label}
-              </option>
+              </NativeSelectOption>
             ))}
-          </Select>
-        </Field>
+          </NativeSelect>
+        </FormField>
 
         {/* Units in the labels: three columns leave no room inside the fields. */}
         <div className="grid grid-cols-3 gap-3">
-          <Field id="calc-age" label="Age">
+          <FormField id="calc-age" label="Age">
             <Input
               id="calc-age"
               inputMode="numeric"
@@ -94,8 +103,8 @@ export function GoalsCalculator({ onUse }: GoalsCalculatorProps) {
               value={fields.age}
               onChange={update("age")}
             />
-          </Field>
-          <Field id="calc-height" label="Height (cm)">
+          </FormField>
+          <FormField id="calc-height" label="Height (cm)">
             <Input
               id="calc-height"
               inputMode="numeric"
@@ -103,8 +112,8 @@ export function GoalsCalculator({ onUse }: GoalsCalculatorProps) {
               value={fields.heightCm}
               onChange={update("heightCm")}
             />
-          </Field>
-          <Field id="calc-weight" label="Weight (kg)">
+          </FormField>
+          <FormField id="calc-weight" label="Weight (kg)">
             <Input
               id="calc-weight"
               inputMode="decimal"
@@ -112,35 +121,41 @@ export function GoalsCalculator({ onUse }: GoalsCalculatorProps) {
               value={fields.weightKg}
               onChange={update("weightKg")}
             />
-          </Field>
+          </FormField>
         </div>
 
-        <Field id="calc-activity" label="Activity">
-          <Select
+        <FormField id="calc-activity" label="Activity">
+          <NativeSelect
+            className="w-full"
             id="calc-activity"
             value={fields.activity}
             onChange={update("activity")}
           >
-            <option value="" disabled>
+            <NativeSelectOption value="" disabled>
               Choose…
-            </option>
+            </NativeSelectOption>
             {Object.entries(ACTIVITY_LEVELS).map(([value, { label }]) => (
-              <option key={value} value={value}>
+              <NativeSelectOption key={value} value={value}>
                 {label}
-              </option>
+              </NativeSelectOption>
             ))}
-          </Select>
-        </Field>
+          </NativeSelect>
+        </FormField>
 
-        <Field id="calc-goal" label="Goal">
-          <Select id="calc-goal" value={fields.goal} onChange={update("goal")}>
+        <FormField id="calc-goal" label="Goal">
+          <NativeSelect
+            className="w-full"
+            id="calc-goal"
+            value={fields.goal}
+            onChange={update("goal")}
+          >
             {Object.entries(WEIGHT_GOALS).map(([value, { label }]) => (
-              <option key={value} value={value}>
+              <NativeSelectOption key={value} value={value}>
                 {label}
-              </option>
+              </NativeSelectOption>
             ))}
-          </Select>
-        </Field>
+          </NativeSelect>
+        </FormField>
 
         {/* Always rendered, so screen readers announce each new estimate. */}
         <div aria-live="polite">
@@ -187,41 +202,5 @@ export function GoalsCalculator({ onUse }: GoalsCalculatorProps) {
         </p>
       </div>
     </details>
-  );
-}
-
-function Field({
-  id,
-  label,
-  hint,
-  children,
-}: {
-  id: string;
-  label: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="grid content-start gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      {children}
-      {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-
-/**
- * A native <select>: on phones it opens the system picker, which is easier
- * to use than any custom dropdown. Styled to match the shadcn Input.
- */
-function Select({ className, ...props }: ComponentProps<"select">) {
-  return (
-    <select
-      className={cn(
-        "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30",
-        className,
-      )}
-      {...props}
-    />
   );
 }
