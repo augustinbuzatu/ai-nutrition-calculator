@@ -12,11 +12,11 @@ Augustin's personal and portfolio project (Cybernetics student, ASE Bucharest; w
 - One PR per task, from the branch the session assigns, into `main`. Augustin merges, preferably with "Rebase and merge". Reset the branch onto `origin/main` before each new task.
 - Commits: Conventional Commits, small and topical, with `Augustin <augustinbuzatu@gmail.com>` as the only author and no trailers. PR descriptions end after the testing section, with no footer.
 - Never schedule check-ins (`send_later`, triggers) or subscribe to PR activity: they cost money. Augustin says when he has merged.
-- Never ask for keys, tokens or passwords in the chat. The `sb_secret_` key never goes into code, `NEXT_PUBLIC_` variables, the chat or GitHub. `.env.local` is gitignored.
+- Never ask for keys, tokens or passwords in the chat. The `sb_secret_` key and `OPENAI_API_KEY` never go into code, `NEXT_PUBLIC_` variables, the chat or GitHub. `.env.local` is gitignored.
 
 ## Stack
 
-Next.js 16 (App Router, Server Components, Server Actions, React Compiler) · React 19 · TypeScript (strict) · Tailwind CSS v4 (configured in CSS) · shadcn/ui (base-nova, Base UI primitives) · Zod 4 · Supabase (Postgres with RLS, Auth with email and password, `@supabase/ssr`) · Vitest · PGlite · ESLint 9 · Prettier · GitHub Actions.
+Next.js 16 (App Router, Server Components, Server Actions, React Compiler) · React 19 · TypeScript (strict) · Tailwind CSS v4 (configured in CSS) · shadcn/ui (base-nova, Base UI primitives) · Zod 4 · Supabase (Postgres with RLS, Auth with email and password, `@supabase/ssr`) · Vercel AI SDK 7 + OpenAI (`gpt-6-luna`) · Vitest · PGlite · ESLint 9 · Prettier · GitHub Actions.
 
 ## Commands
 
@@ -33,6 +33,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `src/lib/goals/`: limits (mirror the DB constraints), Zod schema, `getGoals()`, `saveGoals()`, and `estimate.ts` (Mifflin-St Jeor calculator, browser only).
 - `src/lib/diary/`: `todayIn()` (today's date in the user's time zone), progress status for the stat tiles, `getTodaysDiary()`.
 - `src/lib/meals/`: the meal form's rules (`form.ts`, shared by the browser preview and the server), `getMeal()`, and the `addMeal` / `updateMeal` / `deleteMeal` Server Actions.
+- `src/lib/parser/`: `parseMealDescription()` turns a description into the meal form's fields, one set per food, with OpenAI; the model's instructions are in `instructions.ts`.
 - `src/lib/input.ts`: `parseNumberInput()` (strict numbers, decimal comma) and `isKeyOf()`.
 - `src/components/form-field.tsx`: `FormField` and `describedBy()`, used by every form.
 - `src/lib/nutrition/`: food schemas, nutrient scaling and summing (`calculate.ts`), plausibility checks (`check.ts`: physical limits, Atwater 4/4/9).
@@ -48,6 +49,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Forms use `useActionState` with a Server Action. Fields that must survive an error are controlled: React resets forms after submit, and Base UI warns when `defaultValue` changes.
 - Number fields use `type="text"` with `inputMode` and strict parsing, never `z.coerce.number()`.
 - Keep Zod out of client components; client-side checks are plain functions.
+- The LLM only reads text and recalls typical values, never does math. Its answer is untrusted input: a strict schema with types only, then the meal form's rules, food by food.
+- Tests never call a real model: use `MockLanguageModelV4` from `ai/test`, or stub `fetch` to check the request sent to OpenAI.
 - Comments explain why, briefly. Prettier formats everything, with LF line endings.
 - Mobile-first, phone-width column (`max-w-md`). Check 360 px and dark mode.
 
@@ -67,6 +70,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `formatNumber` shows at most 3 decimals, which already hides floating-point noise; round to display precision with `roundNutrients` after summing.
 - "1,200" in a decimal field could be 1200 or 1.2: `parseNumberInput` returns `"ambiguous"` and the form asks.
 - Keep a number and its unit together with a non-breaking space (`\u00a0`), or "7.2" and "g" can wrap apart.
+- AI SDK 7 differs from older examples: `system` is now `instructions`, and structured output is `generateText` with `output: Output.object(...)`. Read `node_modules/ai/docs/` and `node_modules/@ai-sdk/openai/docs/`.
+- OpenAI's strict Structured Outputs need every field: use `.nullable()`, never `.optional()`.
 
 ## Verifying changes
 
@@ -89,8 +94,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Task 3.2, goals calculator.
   - Task 3.3, dashboard progress and today's meal list from real entries.
   - Task 3.4, add, edit and delete meals manually (works without AI).
+  - Task 4.1, the meal parser: AI SDK + OpenAI with a strict schema.
 - Stage 4, AI parser:
-  - 4.1: AI SDK + OpenAI with a parser schema.
   - 4.2: the "+" button turns text into editable confirmation cards, then saves them.
   - 4.3: an eval set of about 20 test sentences.
 - Stage 5, real data sources:
@@ -100,7 +105,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - 5.4: a web-search agent for restaurants (e.g. KFC).
   - 5.5: source badges in the UI.
 - Stage 6, launch:
-  - 6.1: deploy on Vercel.
+  - 6.1: deploy on Vercel. First, limit AI calls per user per day: anyone can sign up, and each call costs money.
   - 6.2: PWA.
   - 6.3: portfolio README.
 - Later: Google sign-in; Phase 2 (charts and history, barcode scanning, a Python FastAPI service for predictions).

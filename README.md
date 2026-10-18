@@ -11,19 +11,19 @@ Log your meals in plain language, in English or Romanian, and get accurate calor
 
 LLMs are great at understanding language and bad at arithmetic, so this app splits the job:
 
-1. **Parse**: an LLM turns free text into structured data (food, brand, quantity, unit), enforced with Structured Outputs and validated with Zod.
-2. **Resolve**: nutrition values come from trusted sources: a local cache, USDA FoodData Central, Open Food Facts, and official restaurant data found through web search.
+1. **Parse**: an LLM turns free text into structured data (food, amount, unit), enforced with Structured Outputs and validated with Zod.
+2. **Resolve**: nutrition values come from trusted sources: a local cache, USDA FoodData Central, Open Food Facts, and official restaurant data found through web search. Until those are wired in, the LLM estimates typical values, and step 3 checks them.
 3. **Validate**: every value is checked against physical limits and the Atwater factors (4/4/9 kcal per gram of protein/carbs/fat).
 4. **Calculate**: all math is done by deterministic, unit-tested TypeScript. The model never does arithmetic.
 
 ## Tech stack
 
-- **Now:** Next.js 16 (App Router, Server Actions, React Compiler) · TypeScript · Tailwind CSS v4 · shadcn/ui · Zod · Supabase (PostgreSQL with Row Level Security, Auth with email and password) · Vitest · PGlite · ESLint · Prettier · GitHub Actions
-- **Planned:** Google sign-in · Vercel AI SDK + OpenAI · Vercel
+- **Now:** Next.js 16 (App Router, Server Actions, React Compiler) · TypeScript · Tailwind CSS v4 · shadcn/ui · Zod · Supabase (PostgreSQL with Row Level Security, Auth with email and password) · Vercel AI SDK + OpenAI · Vitest · PGlite · ESLint · Prettier · GitHub Actions
+- **Planned:** Google sign-in · Vercel
 
 ## Getting started
 
-Requires Node.js 20.9 or newer and a [Supabase](https://supabase.com) project (the free plan is enough).
+Requires Node.js 22 or newer and a [Supabase](https://supabase.com) project (the free plan is enough).
 
 1. Install the dependencies:
 
@@ -40,6 +40,8 @@ Requires Node.js 20.9 or newer and a [Supabase](https://supabase.com) project (t
    ```
 
 3. Copy `.env.example` to `.env.local` and fill in your project's URL and **publishable** key (Dashboard → Project Settings → API Keys). Never use the secret key here.
+
+   To describe meals in words, also add an [OpenAI API key](https://platform.openai.com/api-keys) as `OPENAI_API_KEY`, and set a monthly budget for it under Settings → Limits. Everything else works without it.
 
 4. In the dashboard, under Authentication → URL Configuration, set the Site URL to `http://localhost:3000` and add `http://localhost:3000/**` to the Redirect URLs, so the link in the confirmation email can come back to the app.
 
@@ -85,6 +87,16 @@ Email and password sign-in with Supabase Auth, kept in cookies so Server Compone
 
 The proxy is a convenience, not the security boundary: the database checks every query with Row Level Security, whatever the app does.
 
+## Meal parser
+
+`src/lib/parser/` turns a description such as _"150 g piept de pui și 2 ouă"_ into the fields of the manual meal form, one set per food, so the same rules check what the model says and what a person types.
+
+- The model (OpenAI's `gpt-6-luna`, through the Vercel AI SDK) reads the text and gives, for each food, a name, an amount, a unit and typical values per 100 g, per 100 ml or per serving. It never multiplies: the calculator does.
+- Structured Outputs in strict mode make the answer match a Zod schema. The schema has types only: limits and plausibility are checked food by food afterwards, so one odd value does not throw away the rest.
+- The model gives only the unit; the basis (per 100 g, per 100 ml or per serving) follows from it, so the two can never disagree.
+- The description is sent as the user's message, apart from the instructions. Requests set `store: false`, so OpenAI does not keep the response, and cap the answer at 4,000 tokens.
+- The tests replace the model with the AI SDK's mock, and `fetch` with a fake OpenAI, so they run offline and for free, and check the exact request the app sends.
+
 ## Status
 
 Work in progress: Phase 1 (MVP). What works today:
@@ -95,4 +107,4 @@ Work in progress: Phase 1 (MVP). What works today:
 - The dashboard shows today's calories and protein against the goals, with progress bars, and lists today's meals. "Today" follows the user's time zone, not the server's.
 - Meals can be added by hand from a label or a menu (values per 100 g, per 100 ml or per serving), with a live preview and plausibility checks, then edited or deleted.
 
-Next: logging meals in plain language, with an LLM that turns the text into the same form.
+Next: the "+" button will take a description in plain language and fill in that same form, one card per food, through the meal parser.
