@@ -70,9 +70,6 @@ export const MAX_MEALS_PER_SAVE = 20;
 /** A food on the log page: its fields, and the description it was read from. */
 export type MealDraft = { fields: MealFields; description: string | null };
 
-/** What the add-meal form shows after the server answered. */
-export type MealFormState = { errors?: MealFieldErrors; error?: string };
-
 /** What the log page shows after the server answered. */
 export type MealsFormState = { error?: string };
 
