@@ -10,59 +10,47 @@ import { createClient } from "@/lib/supabase/server";
 import {
   type MealEditFields,
   type MealEditFormState,
-  type MealFields,
-  type MealFormState,
-  checkMeal,
-  parseMeal,
+  type MealsFormState,
   parseMealEdit,
   rescaleNutrients,
 } from "./form";
 import { getMeal } from "./queries";
+import { readMealDrafts } from "./submission";
 
-// The browser runs parseMeal and checkMeal for its live preview, but anyone
-// can post to a Server Action: these runs are the ones that count.
+// The browser runs the meal form's rules for its live preview, but anyone can
+// post to a Server Action: these runs are the ones that count.
 
-export async function addMeal(
-  _previous: MealFormState,
+export async function addMeals(
+  _previous: MealsFormState,
   formData: FormData,
-): Promise<MealFormState> {
+): Promise<MealsFormState> {
   await requireUser();
-  const parsed = parseMeal(
-    readFields<keyof MealFields>(formData, [
-      "name",
-      "basis",
-      "servingLabel",
-      "kcal",
-      "proteinG",
-      "carbsG",
-      "fatG",
-      "amount",
-      "unit",
-    ]),
-  );
-  if (!parsed.ok) return { errors: parsed.errors };
-  const check = checkMeal(parsed.meal);
-  if (!check.ok) return { error: check.error };
+  const drafts = readMealDrafts(formData.get("meals"));
+  if (!drafts.ok) return { error: drafts.error };
 
   const { timeZone } = await getProfile();
-  const { meal } = parsed;
+  const entryDate = todayIn(timeZone);
   const supabase = await createClient();
+  // One INSERT for every food: they are all saved, or none is.
   // user_id is left out: the database fills it in from the session
   // (default auth.uid()), and RLS rejects any other value.
-  const { error } = await supabase.from("food_entries").insert({
-    entry_date: todayIn(timeZone),
-    name: meal.name,
-    quantity: meal.quantity.amount,
-    unit: meal.quantity.unit,
-    // A snapshot of the result, unrounded: later edits to a food never
-    // rewrite what was eaten.
-    kcal: check.nutrients.kcal,
-    protein_g: check.nutrients.proteinG,
-    carbs_g: check.nutrients.carbsG,
-    fat_g: check.nutrients.fatG,
-  });
+  const { error } = await supabase.from("food_entries").insert(
+    drafts.meals.map(({ meal, nutrients, description }) => ({
+      entry_date: entryDate,
+      name: meal.name,
+      quantity: meal.quantity.amount,
+      unit: meal.quantity.unit,
+      // A snapshot of the result, unrounded: later edits to a food never
+      // rewrite what was eaten.
+      kcal: nutrients.kcal,
+      protein_g: nutrients.proteinG,
+      carbs_g: nutrients.carbsG,
+      fat_g: nutrients.fatG,
+      raw_input: description,
+    })),
+  );
   if (error) {
-    return { error: "Your meal could not be saved. Please try again." };
+    return { error: "Your meals could not be saved. Please try again." };
   }
 
   revalidatePath("/");

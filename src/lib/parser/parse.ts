@@ -2,7 +2,11 @@ import { openai } from "@ai-sdk/openai";
 import { type LanguageModel, Output, generateText } from "ai";
 import * as z from "zod";
 import { roundTo } from "@/lib/math";
-import type { BASES, MealFields } from "@/lib/meals/form";
+import {
+  type BASES,
+  MAX_DESCRIPTION_LENGTH,
+  type MealFields,
+} from "@/lib/meals/form";
 import { type Unit, unitSchema } from "@/lib/nutrition/schemas";
 import { INSTRUCTIONS } from "./instructions";
 
@@ -13,7 +17,10 @@ import { INSTRUCTIONS } from "./instructions";
 /** The cheapest current OpenAI model; the eval set (Task 4.3) checks it is good enough. */
 const MODEL = "gpt-6-luna";
 
-export const MAX_DESCRIPTION_LENGTH = 500;
+/** Without a key, the log page offers only the manual form. */
+export function isParserConfigured(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY);
+}
 
 /**
  * The answer the model must give. Only types, no limits: the meal form's rules

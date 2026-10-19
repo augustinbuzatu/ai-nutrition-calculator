@@ -61,8 +61,17 @@ export type MealFieldErrors = Partial<Record<keyof MealFields, string>>;
 
 export type Meal = { name: string; facts: NutritionFacts; quantity: Quantity };
 
-/** What the add-meal form shows after the server answered. */
-export type MealFormState = { errors?: MealFieldErrors; error?: string };
+/** The longest meal description the parser reads. */
+export const MAX_DESCRIPTION_LENGTH = 500;
+
+/** How many foods the log page saves at once. */
+export const MAX_MEALS_PER_SAVE = 20;
+
+/** A food on the log page: its fields, and the description it was read from. */
+export type MealDraft = { fields: MealFields; description: string | null };
+
+/** What the log page shows after the server answered. */
+export type MealsFormState = { error?: string };
 
 type Read<T> = { ok: true; value: T } | { ok: false; error: string };
 

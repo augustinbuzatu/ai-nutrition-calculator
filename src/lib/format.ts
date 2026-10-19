@@ -16,3 +16,15 @@ export function formatQuantity(amount: number, unit: Unit): string {
   }
   return `${formatNumber(amount)} ${unit}`;
 }
+
+/**
+ * "3.6 g fat", "248 kcal". Non-breaking spaces keep each nutrient on one line,
+ * so a list of them only wraps between nutrients.
+ */
+export function formatNutrient(
+  value: number,
+  unit: string,
+  name?: string,
+): string {
+  return [formatNumber(value), unit, name].filter(Boolean).join("\u00a0");
+}
