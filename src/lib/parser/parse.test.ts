@@ -1,8 +1,8 @@
 import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parseMeal } from "@/lib/meals/form";
+import { MAX_DESCRIPTION_LENGTH, parseMeal } from "@/lib/meals/form";
 import { INSTRUCTIONS } from "./instructions";
-import { MAX_DESCRIPTION_LENGTH, parseMealDescription } from "./parse";
+import { isParserConfigured, parseMealDescription } from "./parse";
 
 const chicken = {
   name: "Piept de pui",
@@ -301,5 +301,18 @@ describe("parseMealDescription with OpenAI", () => {
     });
     // No summaries of the model's reasoning: nothing reads them.
     expect(body.reasoning).not.toHaveProperty("summary");
+  });
+});
+
+describe("isParserConfigured", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("needs an OpenAI key", () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    expect(isParserConfigured()).toBe(false);
+    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    expect(isParserConfigured()).toBe(true);
   });
 });
