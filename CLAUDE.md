@@ -32,12 +32,13 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `src/lib/profile.ts`: `getProfile()` (goals and time zone), cached per request.
 - `src/lib/goals/`: limits (mirror the DB constraints), Zod schema, `getGoals()`, `saveGoals()`, and `estimate.ts` (Mifflin-St Jeor calculator, browser only).
 - `src/lib/diary/`: `todayIn()` (today's date in the user's time zone), progress status for the stat tiles, `getTodaysDiary()`.
-- `src/lib/meals/`: the meal form's rules (`form.ts`, shared by the browser preview and the server), `getMeal()`, and the `addMeal` / `updateMeal` / `deleteMeal` Server Actions.
-- `src/lib/parser/`: `parseMealDescription()` turns a description into the meal form's fields, one set per food, with OpenAI; the model's instructions are in `instructions.ts`.
+- `src/lib/meals/`: the meal form's rules (`form.ts`, shared by the browser preview and the server), `submission.ts` (reads the log page's cards on the server, with Zod), `getMeal()`, and the `addMeals` / `updateMeal` / `deleteMeal` Server Actions.
+- `src/lib/parser/`: `parseMealDescription()` turns a description into the meal form's fields, one set per food, with OpenAI; the model's instructions are in `instructions.ts`. `describeMeal` is its Server Action, and `isParserConfigured()` checks for the key.
+- `src/components/log-meal-form.tsx` and `meal-card.tsx`: the log page, where a description becomes one editable card per food.
 - `src/lib/input.ts`: `parseNumberInput()` (strict numbers, decimal comma) and `isKeyOf()`.
 - `src/components/form-field.tsx`: `FormField` and `describedBy()`, used by every form.
 - `src/lib/nutrition/`: food schemas, nutrient scaling and summing (`calculate.ts`), plausibility checks (`check.ts`: physical limits, Atwater 4/4/9).
-- `src/app/`: `/` dashboard (today's totals and meals; redirects to `/goals` until both goals are set), `/goals`, `/login`, `/signup`, `/auth/confirm` (PKCE code exchange), `/log` (add a meal), `/meals/[id]` (edit or delete one).
+- `src/app/`: `/` dashboard (today's totals and meals; redirects to `/goals` until both goals are set), `/goals`, `/login`, `/signup`, `/auth/confirm` (PKCE code exchange), `/log` (describe a meal or add foods by hand, then save them together), `/meals/[id]` (edit or delete one).
 - `supabase/migrations/`: schema as SQL. `supabase/tests/`: RLS and constraint tests in PGlite.
 
 ## Conventions
@@ -46,7 +47,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Server Actions are public endpoints: call `requireUser()` and validate on the server, with Zod or with the plain parsers a form shares with the browser (`src/lib/meals/form.ts`). Data functions check auth themselves; the proxy is a convenience and RLS is the security boundary.
 - Every table has RLS, grants follow least privilege, and policies use `(select auth.uid())`. App limits mirror DB check constraints, and a PGlite test ties the two together.
 - Data functions return only the fields pages need, with app names, not column names.
-- Forms use `useActionState` with a Server Action. Fields that must survive an error are controlled: React resets forms after submit, and Base UI warns when `defaultValue` changes.
+- Forms use `useActionState` with a Server Action. Fields that must survive an error are controlled: React resets forms after submit, and Base UI warns when `defaultValue` changes. When an action's result feeds local state (the log page's cards), call it from an event handler inside `startTransition` instead.
 - Number fields use `type="text"` with `inputMode` and strict parsing, never `z.coerce.number()`.
 - Keep Zod out of client components; client-side checks are plain functions.
 - The LLM only reads text and recalls typical values, never does math. Its answer is untrusted input: a strict schema with types only, then the meal form's rules, food by food.
@@ -64,7 +65,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `"toString" in {}` is true: use `Object.hasOwn` to check keys.
 - Functions named `useX` are treated as hooks by React and the React Compiler.
 - Stay on ESLint 9: `eslint-plugin-react` breaks on ESLint 10.
-- In Playwright, `[role=alert]` also matches Next's route announcer, and `button[type=submit]` matches the header's Sign out button: scope selectors to `main`.
+- In Playwright, `[role=alert]` also matches Next's route announcer, and `button[type=submit]` matches the header's Sign out button: scope selectors to `main`. `text=` matches any substring, case-insensitively: use `getByRole` for buttons.
 - `pkill -f "next dev"` also kills the shell running it: stop processes by PID.
 - The server runs in UTC: compute "today" with `todayIn(timeZone)`, never from `new Date().toISOString()`.
 - `formatNumber` shows at most 3 decimals, which already hides floating-point noise; round to display precision with `roundNutrients` after summing.
@@ -81,6 +82,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   2. `npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,storage-api`
   3. Write `.env.local` from `npx supabase status -o env` (local keys only).
   4. Run `next dev` and drive the flows with Playwright (`/opt/node22/lib/node_modules/playwright`). Confirmation emails arrive in Mailpit at `http://127.0.0.1:54324`.
+     To test the AI flow without a key, run a small fake of the Responses API (canned answers by keyword) and add `OPENAI_API_KEY=sk-fake` and `OPENAI_BASE_URL=http://127.0.0.1:4010/v1` to `.env.local`: the OpenAI provider reads `OPENAI_BASE_URL`.
   5. Run `npx supabase stop` when done.
 - Take screenshots at 360 and 390 px, in light and dark mode.
 
@@ -95,8 +97,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Task 3.3, dashboard progress and today's meal list from real entries.
   - Task 3.4, add, edit and delete meals manually (works without AI).
   - Task 4.1, the meal parser: AI SDK + OpenAI with a strict schema.
+  - Task 4.2, the log page: a description becomes editable cards, saved together.
 - Stage 4, AI parser:
-  - 4.2: the "+" button turns text into editable confirmation cards, then saves them.
   - 4.3: an eval set of about 20 test sentences.
 - Stage 5, real data sources:
   - 5.1: a cache in `foods` with fuzzy search (`pg_trgm`).
@@ -105,7 +107,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - 5.4: a web-search agent for restaurants (e.g. KFC).
   - 5.5: source badges in the UI.
 - Stage 6, launch:
-  - 6.1: deploy on Vercel. First, limit AI calls per user per day: anyone can sign up, and each call costs money.
+  - 6.1: deploy on Vercel. First, limit AI calls per user per day: anyone can sign up, and each call costs money. Augustin chose a demo account for recruiters; keys stay on the server (no bring-your-own-key for now).
   - 6.2: PWA.
   - 6.3: portfolio README.
 - Later: Google sign-in; Phase 2 (charts and history, barcode scanning, a Python FastAPI service for predictions).
