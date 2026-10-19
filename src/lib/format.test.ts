@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatNumber, formatQuantity } from "./format";
+import { formatNumber, formatNutrient, formatQuantity } from "./format";
 
 describe("formatNumber", () => {
   it("groups thousands with a comma", () => {
@@ -29,5 +29,16 @@ describe("formatQuantity", () => {
     expect(formatQuantity(1, "serving")).toBe("1 serving");
     expect(formatQuantity(2, "serving")).toBe("2 servings");
     expect(formatQuantity(0.5, "serving")).toBe("0.5 servings");
+  });
+});
+
+describe("formatNutrient", () => {
+  it("joins the value, unit and name with non-breaking spaces", () => {
+    expect(formatNutrient(3.6, "g", "fat")).toBe("3.6\u00a0g\u00a0fat");
+    expect(formatNutrient(1247.5, "kcal")).toBe("1,247.5\u00a0kcal");
+  });
+
+  it("keeps a zero", () => {
+    expect(formatNutrient(0, "g", "carbs")).toBe("0\u00a0g\u00a0carbs");
   });
 });

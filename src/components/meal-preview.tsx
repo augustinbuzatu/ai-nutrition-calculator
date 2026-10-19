@@ -1,5 +1,5 @@
 import { TriangleAlert } from "lucide-react";
-import { formatNumber } from "@/lib/format";
+import { formatNutrient } from "@/lib/format";
 import type { MealCheck } from "@/lib/meals/form";
 import { roundNutrients } from "@/lib/nutrition/calculate";
 import type { Nutrients } from "@/lib/nutrition/schemas";
@@ -42,16 +42,14 @@ export function MealPreview({ check, verb, empty }: MealPreviewProps) {
 
 /** Rounded nutrients, kcal first. */
 function Totals({ nutrients }: { nutrients: Nutrients }) {
-  // A non-breaking space keeps each number on the same line as its unit.
-  const amount = (value: number, unit: string) =>
-    `${formatNumber(value)}\u00a0${unit}`;
   return (
     <>
       <strong className="font-semibold">
-        {amount(nutrients.kcal, "kcal")}
+        {formatNutrient(nutrients.kcal, "kcal")}
       </strong>{" "}
-      · {amount(nutrients.proteinG, "g")} protein ·{" "}
-      {amount(nutrients.carbsG, "g")} carbs · {amount(nutrients.fatG, "g")} fat
+      · {formatNutrient(nutrients.proteinG, "g", "protein")} ·{" "}
+      {formatNutrient(nutrients.carbsG, "g", "carbs")} ·{" "}
+      {formatNutrient(nutrients.fatG, "g", "fat")}
     </>
   );
 }
