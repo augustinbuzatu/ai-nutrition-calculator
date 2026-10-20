@@ -20,7 +20,7 @@ Next.js 16 (App Router, Server Components, Server Actions, React Compiler) · Re
 
 ## Commands
 
-`npm ci` · `npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` (runs `next typegen` first) · `npm test` · `npm run format` / `format:check` · `npm run db:types` (regenerates `src/lib/supabase/database.types.ts` from the linked project).
+`npm ci` · `npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` (runs `next typegen` first) · `npm test` · `npm run format` / `format:check` · `npm run db:types` (regenerates `src/lib/supabase/database.types.ts` from the linked project) · `npm run eval` (grades the parser against the real model; needs `OPENAI_API_KEY`).
 
 CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five before pushing; `build` must pass without `.env.local`.
 
@@ -34,6 +34,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `src/lib/diary/`: `todayIn()` (today's date in the user's time zone), progress status for the stat tiles, `getTodaysDiary()`.
 - `src/lib/meals/`: the meal form's rules (`form.ts`, shared by the browser preview and the server), `submission.ts` (reads the log page's cards on the server, with Zod), `getMeal()`, and the `addMeals` / `updateMeal` / `deleteMeal` Server Actions.
 - `src/lib/parser/`: `parseMealDescription()` turns a description into the meal form's fields, one set per food, with OpenAI; the model's instructions are in `instructions.ts`. `describeMeal` is its Server Action, and `isParserConfigured()` checks for the key.
+- `evals/`: the parser's eval set (`cases.ts`, with USDA-based ranges), the grader (`grade.ts`, unit-tested in `npm test`) and the runner (`parser.eval.ts`, its own Vitest config).
 - `src/components/log-meal-form.tsx` and `meal-card.tsx`: the log page, where a description becomes one editable card per food.
 - `src/lib/input.ts`: `parseNumberInput()` (strict numbers, decimal comma) and `isKeyOf()`.
 - `src/components/form-field.tsx`: `FormField` and `describedBy()`, used by every form.
@@ -51,7 +52,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Number fields use `type="text"` with `inputMode` and strict parsing, never `z.coerce.number()`.
 - Keep Zod out of client components; client-side checks are plain functions.
 - The LLM only reads text and recalls typical values, never does math. Its answer is untrusted input: a strict schema with types only, then the meal form's rules, food by food.
-- Tests never call a real model: use `MockLanguageModelV4` from `ai/test`, or stub `fetch` to check the request sent to OpenAI.
+- Tests never call a real model: use `MockLanguageModelV4` from `ai/test`, or stub `fetch` to check the request sent to OpenAI. Only `npm run eval` calls OpenAI, on request, never in CI.
+- After changing the parser's instructions, schema or model, run `npm run eval` and compare with the last report.
 - Comments explain why, briefly. Prettier formats everything, with LF line endings.
 - Mobile-first, phone-width column (`max-w-md`). Check 360 px and dark mode.
 
@@ -98,8 +100,9 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Task 3.4, add, edit and delete meals manually (works without AI).
   - Task 4.1, the meal parser: AI SDK + OpenAI with a strict schema.
   - Task 4.2, the log page: a description becomes editable cards, saved together.
+  - Task 4.3, the eval set: 22 descriptions graded through the app's own rules (`npm run eval`).
 - Stage 4, AI parser:
-  - 4.3: an eval set of about 20 test sentences.
+  - Next: run `npm run eval` with Augustin's key, record the baseline in the README, and tune the instructions where cases fail.
 - Stage 5, real data sources:
   - 5.1: a cache in `foods` with fuzzy search (`pg_trgm`).
   - 5.2: USDA FoodData Central.
