@@ -14,8 +14,8 @@ import { INSTRUCTIONS } from "./instructions";
 // food. The model only reads the text and recalls typical values; the form's
 // rules then check every food, and the calculator does the math.
 
-/** The cheapest current OpenAI model; the eval set (Task 4.3) checks it is good enough. */
-const MODEL = "gpt-6-luna";
+/** The cheapest current OpenAI model; `npm run eval` checks it is good enough. */
+export const PARSER_MODEL = "gpt-6-luna";
 
 /** Without a key, the log page offers only the manual form. */
 export function isParserConfigured(): boolean {
@@ -62,7 +62,7 @@ const BASIS_FOR_UNIT = {
 
 export async function parseMealDescription(
   text: string,
-  model: LanguageModel = openai(MODEL),
+  model: LanguageModel = openai(PARSER_MODEL),
 ): Promise<ParseResult> {
   const description = text.trim();
   if (description === "") return { ok: false, error: "Describe what you ate." };

@@ -62,6 +62,7 @@ Requires Node.js 22 or newer and a [Supabase](https://supabase.com) project (the
 | `npm test`          | Runs the unit tests once (`npm run test:watch` reruns them on save) |
 | `npm run format`    | Formats every file with Prettier (`format:check` only checks)       |
 | `npm run db:types`  | Regenerates the database types from the linked Supabase project     |
+| `npm run eval`      | Grades the meal parser against the real model (needs an OpenAI key) |
 
 CI runs `format:check`, `lint`, `typecheck`, `test` and `build` on every push and pull request.
 
@@ -99,6 +100,16 @@ The proxy is a convenience, not the security boundary: the database checks every
 
 On the log page, each food the parser finds becomes a card to check. A card shows the estimate folded, with what the model assumed ("Assumed cooked weight."), and opens by itself when something needs fixing. Foods can also be added by hand, and without an `OPENAI_API_KEY` that is all the page offers. All the cards are saved together, in one `INSERT`, and each keeps the description it came from, to evaluate the parser later.
 
+## Evals
+
+Unit tests prove the code around the model works; they cannot tell whether the model reads meals well. `npm run eval` sends 22 descriptions to the real model and grades each answer the way the app would use it, through the meal form's rules and the calculator:
+
+- **Structure:** the right number of foods, and the amount when the description states it (150 g stays 150 g, "2 ouă" is 2 servings).
+- **Values:** what each food adds, in kcal and protein, within a range built from USDA FoodData Central values. The ranges are wide on purpose, to catch gross errors (kJ for kcal, raw rice read as cooked, a portion counted twice), not a few percent.
+- **Hard cases:** Romanian dishes (mici, sarmale, ciorbă de burtă), decimal commas, household measures, restaurants, text that tries to give the model orders, and text with no food at all.
+
+The report lists what the model found for each case, then the score, the tokens, the cost and the time per call. `EVAL_MODEL=gpt-6-sol npm run eval` compares another model. The evals never run in CI: they cost money and their answers vary from run to run. The grading code itself is unit-tested.
+
 ## Status
 
 Work in progress: Phase 1 (MVP). What works today:
@@ -110,4 +121,4 @@ Work in progress: Phase 1 (MVP). What works today:
 - Meals can be described in plain language, in English or Romanian: each food becomes an editable card with the estimated values, and nothing is saved until the user confirms.
 - Foods can also be added by hand from a label or a menu (values per 100 g, per 100 ml or per serving), with a live preview and plausibility checks, then edited or deleted.
 
-Next: an eval set of about 20 descriptions, to measure how accurate the parser is, then nutrition values from real sources.
+Next: the parser's first eval baseline, then nutrition values from real sources.
