@@ -1,4 +1,3 @@
-import { openai } from "@ai-sdk/openai";
 import { type LanguageModel, Output, generateText } from "ai";
 import * as z from "zod";
 import { roundTo } from "@/lib/math";
@@ -9,17 +8,15 @@ import {
 } from "@/lib/meals/form";
 import { type Unit, unitSchema } from "@/lib/nutrition/schemas";
 import { INSTRUCTIONS } from "./instructions";
+import { parserModel, parserProvider } from "./model";
 
 // Turns "150 g piept de pui și 2 ouă" into the meal form's fields, one set per
 // food. The model only reads the text and recalls typical values; the form's
 // rules then check every food, and the calculator does the math.
 
-/** The cheapest current OpenAI model; `npm run eval` checks it is good enough. */
-export const PARSER_MODEL = "gpt-6-luna";
-
 /** Without a key, the log page offers only the manual form. */
 export function isParserConfigured(): boolean {
-  return Boolean(process.env.OPENAI_API_KEY);
+  return parserProvider() !== null;
 }
 
 /**
@@ -62,7 +59,7 @@ const BASIS_FOR_UNIT = {
 
 export async function parseMealDescription(
   text: string,
-  model: LanguageModel = openai(PARSER_MODEL),
+  model: LanguageModel = parserModel(),
 ): Promise<ParseResult> {
   const description = text.trim();
   if (description === "") return { ok: false, error: "Describe what you ate." };

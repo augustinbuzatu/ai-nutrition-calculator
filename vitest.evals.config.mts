@@ -3,7 +3,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
 // The evals call the real model, so they run only on request (npm run eval),
-// never in CI. They read OPENAI_API_KEY from .env.local, like `next dev`;
+// never in CI. They read the API key from .env.local, like `next dev`;
 // variables already set in the shell win.
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 
