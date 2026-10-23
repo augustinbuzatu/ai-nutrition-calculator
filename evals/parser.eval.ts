@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { anthropic } from "@ai-sdk/anthropic";
 import { wrapLanguageModel } from "ai";
 import { afterAll, describe, it } from "vitest";
 import { formatNumber } from "@/lib/format";
@@ -11,22 +11,21 @@ import { CASES } from "./cases";
 import { type Grade, gradeCase } from "./grade";
 
 // Runs every case against the real model and prints a report. To compare
-// another model: EVAL_MODEL=gpt-6-sol npm run eval
+// another model: EVAL_MODEL=claude-sonnet-5-5 npm run eval
 
 if (!isParserConfigured()) {
   throw new Error(
-    "npm run eval calls OpenAI: add OPENAI_API_KEY to .env.local first.",
+    "npm run eval calls Anthropic: add ANTHROPIC_API_KEY to .env.local first.",
   );
 }
 
 const modelId = process.env.EVAL_MODEL || PARSER_MODEL;
 
-/** USD per million input and output tokens, from OpenAI's pricing page (October 2026). */
+/** USD per million input and output tokens, from Anthropic's pricing page (October 2026). */
 const PRICES: Record<string, [number, number]> = {
-  "gpt-6-luna": [0.1, 0.5],
-  "gpt-6-sol": [2, 10],
-  "gpt-5.4-mini": [0.75, 4.5],
-  "gpt-5.4-nano": [0.2, 1.25],
+  "claude-haiku-5-5": [0.1, 0.5],
+  "claude-sonnet-5-5": [2, 10],
+  "claude-opus-5-5": [4, 20],
 };
 
 type Call = { inputTokens: number; outputTokens: number; seconds: number };
@@ -34,7 +33,7 @@ const calls: Call[] = [];
 
 // Records each call's tokens and time, for the cost and speed in the report.
 const model = wrapLanguageModel({
-  model: openai(modelId),
+  model: anthropic(modelId),
   middleware: {
     specificationVersion: "v4",
     wrapGenerate: async ({ doGenerate }) => {

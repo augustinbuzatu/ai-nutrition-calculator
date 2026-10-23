@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     // Pure functions run in plain Node; React component tests will need "jsdom" later.
     environment: "node",
-    // The evals call OpenAI and run on their own (npm run eval); their
+    // The evals call the real model and run on their own (npm run eval); their
     // grading code is tested here.
     include: [
       "src/**/*.test.{ts,tsx}",

@@ -247,34 +247,28 @@ describe("parseMealDescription", () => {
   });
 });
 
-describe("parseMealDescription with OpenAI", () => {
+describe("parseMealDescription with Anthropic", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
 
-  it("asks for strict JSON, low reasoning and no stored response", async () => {
-    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+  it("asks for a JSON schema with low effort, instructions apart", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    // Cloud sessions set it for Claude Code itself; the test checks the default.
+    vi.stubEnv("ANTHROPIC_BASE_URL", undefined);
     const fetch = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(
       async () =>
         Response.json({
-          id: "resp_1",
-          created_at: 1_760_000_000,
-          model: "gpt-6-luna",
-          output: [
-            {
-              type: "message",
-              role: "assistant",
-              id: "msg_1",
-              content: [
-                {
-                  type: "output_text",
-                  text: JSON.stringify({ foods: [chicken] }),
-                  annotations: [],
-                },
-              ],
-            },
+          id: "msg_1",
+          type: "message",
+          role: "assistant",
+          model: "claude-haiku-5-5",
+          content: [
+            { type: "text", text: JSON.stringify({ foods: [chicken] }) },
           ],
+          stop_reason: "end_turn",
+          stop_sequence: null,
           usage: { input_tokens: 500, output_tokens: 100 },
         }),
     );
@@ -287,20 +281,30 @@ describe("parseMealDescription with OpenAI", () => {
       meals: [{ fields: { name: "Piept de pui", kcal: "165" } }],
     });
     const [url, init] = fetch.mock.calls[0];
-    expect(url).toBe("https://api.openai.com/v1/responses");
-    expect(new Headers(init.headers).get("authorization")).toBe(
-      "Bearer sk-test",
-    );
+    expect(url).toBe("https://api.anthropic.com/v1/messages");
+    expect(new Headers(init.headers).get("x-api-key")).toBe("sk-ant-test");
     const body = JSON.parse(String(init.body));
     expect(body).toMatchObject({
-      model: "gpt-6-luna",
-      store: false,
-      reasoning: { effort: "low" },
-      max_output_tokens: 4000,
-      text: { format: { type: "json_schema", strict: true } },
+      model: "claude-haiku-5-5",
+      max_tokens: 4000,
+      system: [{ type: "text", text: INSTRUCTIONS }],
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: "150 g piept de pui" }],
+        },
+      ],
+      output_config: {
+        effort: "low",
+        format: {
+          type: "json_schema",
+          schema: { additionalProperties: false, required: ["foods"] },
+        },
+      },
     });
-    // No summaries of the model's reasoning: nothing reads them.
-    expect(body.reasoning).not.toHaveProperty("summary");
+    // Thinking stays the model's default, adaptive. The top-level `reasoning`
+    // option would also ask for summaries of it that nothing reads.
+    expect(body).not.toHaveProperty("thinking");
   });
 });
 
@@ -309,10 +313,10 @@ describe("isParserConfigured", () => {
     vi.unstubAllEnvs();
   });
 
-  it("needs an OpenAI key", () => {
-    vi.stubEnv("OPENAI_API_KEY", "");
+  it("needs an Anthropic key", () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
     expect(isParserConfigured()).toBe(false);
-    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
     expect(isParserConfigured()).toBe(true);
   });
 });
