@@ -18,7 +18,7 @@ LLMs are great at understanding language and bad at arithmetic, so this app spli
 
 ## Tech stack
 
-- **Now:** Next.js 16 (App Router, Server Actions, React Compiler) · TypeScript · Tailwind CSS v4 · shadcn/ui · Zod · Supabase (PostgreSQL with Row Level Security, Auth with email and password) · Vercel AI SDK + OpenAI · Vitest · PGlite · ESLint · Prettier · GitHub Actions
+- **Now:** Next.js 16 (App Router, Server Actions, React Compiler) · TypeScript · Tailwind CSS v4 · shadcn/ui · Zod · Supabase (PostgreSQL with Row Level Security, Auth with email and password) · Vercel AI SDK + Claude · Vitest · PGlite · ESLint · Prettier · GitHub Actions
 - **Planned:** Google sign-in · Vercel
 
 ## Getting started
@@ -41,7 +41,7 @@ Requires Node.js 22 or newer and a [Supabase](https://supabase.com) project (the
 
 3. Copy `.env.example` to `.env.local` and fill in your project's URL and **publishable** key (Dashboard → Project Settings → API Keys). Never use the secret key here.
 
-   To describe meals in words, also add an [OpenAI API key](https://platform.openai.com/api-keys) as `OPENAI_API_KEY`, and set a monthly budget for it under Settings → Limits. Everything else works without it.
+   To describe meals in words, also add an [Anthropic API key](https://console.anthropic.com/settings/keys) as `ANTHROPIC_API_KEY`, and set a monthly spend limit in the Console under Settings → Limits. Everything else works without it.
 
 4. In the dashboard, under Authentication → URL Configuration, set the Site URL to `http://localhost:3000` and add `http://localhost:3000/**` to the Redirect URLs, so the link in the confirmation email can come back to the app.
 
@@ -53,16 +53,16 @@ Requires Node.js 22 or newer and a [Supabase](https://supabase.com) project (the
 
 ## Scripts
 
-| Command             | What it does                                                        |
-| ------------------- | ------------------------------------------------------------------- |
-| `npm run dev`       | Starts the development server with hot reload                       |
-| `npm run build`     | Creates the production build                                        |
-| `npm run lint`      | Runs ESLint                                                         |
-| `npm run typecheck` | Generates route types, then runs the TypeScript compiler            |
-| `npm test`          | Runs the unit tests once (`npm run test:watch` reruns them on save) |
-| `npm run format`    | Formats every file with Prettier (`format:check` only checks)       |
-| `npm run db:types`  | Regenerates the database types from the linked Supabase project     |
-| `npm run eval`      | Grades the meal parser against the real model (needs an OpenAI key) |
+| Command             | What it does                                                           |
+| ------------------- | ---------------------------------------------------------------------- |
+| `npm run dev`       | Starts the development server with hot reload                          |
+| `npm run build`     | Creates the production build                                           |
+| `npm run lint`      | Runs ESLint                                                            |
+| `npm run typecheck` | Generates route types, then runs the TypeScript compiler               |
+| `npm test`          | Runs the unit tests once (`npm run test:watch` reruns them on save)    |
+| `npm run format`    | Formats every file with Prettier (`format:check` only checks)          |
+| `npm run db:types`  | Regenerates the database types from the linked Supabase project        |
+| `npm run eval`      | Grades the meal parser against the real model (needs an Anthropic key) |
 
 CI runs `format:check`, `lint`, `typecheck`, `test` and `build` on every push and pull request.
 
@@ -92,13 +92,13 @@ The proxy is a convenience, not the security boundary: the database checks every
 
 `src/lib/parser/` turns a description such as _"150 g piept de pui și 2 ouă"_ into the fields of the manual meal form, one set per food, so the same rules check what the model says and what a person types.
 
-- The model (OpenAI's `gpt-6-luna`, through the Vercel AI SDK) reads the text and gives, for each food, a name, an amount, a unit and typical values per 100 g, per 100 ml or per serving. It never multiplies: the calculator does.
-- Structured Outputs in strict mode make the answer match a Zod schema. The schema has types only: limits and plausibility are checked food by food afterwards, so one odd value does not throw away the rest.
+- The model (Anthropic's Claude Haiku 5.5, through the Vercel AI SDK) reads the text and gives, for each food, a name, an amount, a unit and typical values per 100 g, per 100 ml or per serving. It never multiplies: the calculator does.
+- Structured outputs (a JSON schema the model's answer is constrained to) make the answer match a Zod schema. The schema has types only: limits and plausibility are checked food by food afterwards, so one odd value does not throw away the rest.
 - The model gives only the unit; the basis (per 100 g, per 100 ml or per serving) follows from it, so the two can never disagree.
-- The description is sent as the user's message, apart from the instructions. Requests set `store: false`, so OpenAI does not keep the response, and cap the answer at 4,000 tokens.
-- The tests replace the model with the AI SDK's mock, and `fetch` with a fake OpenAI, so they run offline and for free, and check the exact request the app sends.
+- The description is sent as the user's message, apart from the instructions. Requests ask for low effort, since recalling typical values needs little thinking, and cap the answer at 4,000 tokens.
+- The tests replace the model with the AI SDK's mock, and `fetch` with a fake Anthropic API, so they run offline and for free, and check the exact request the app sends.
 
-On the log page, each food the parser finds becomes a card to check. A card shows the estimate folded, with what the model assumed ("Assumed cooked weight."), and opens by itself when something needs fixing. Foods can also be added by hand, and without an `OPENAI_API_KEY` that is all the page offers. All the cards are saved together, in one `INSERT`, and each keeps the description it came from, to evaluate the parser later.
+On the log page, each food the parser finds becomes a card to check. A card shows the estimate folded, with what the model assumed ("Assumed cooked weight."), and opens by itself when something needs fixing. Foods can also be added by hand, and without an `ANTHROPIC_API_KEY` that is all the page offers. All the cards are saved together, in one `INSERT`, and each keeps the description it came from, to evaluate the parser later.
 
 ## Evals
 
@@ -108,7 +108,7 @@ Unit tests prove the code around the model works; they cannot tell whether the m
 - **Values:** what each food adds, in kcal and protein, within a range built from USDA FoodData Central values. The ranges are wide on purpose, to catch gross errors (kJ for kcal, raw rice read as cooked, a portion counted twice), not a few percent.
 - **Hard cases:** Romanian dishes (mici, sarmale, ciorbă de burtă), decimal commas, household measures, restaurants, text that tries to give the model orders, and text with no food at all.
 
-The report lists what the model found for each case, then the score, the tokens, the cost and the time per call. `EVAL_MODEL=gpt-6-sol npm run eval` compares another model. The evals never run in CI: they cost money and their answers vary from run to run. The grading code itself is unit-tested.
+The report lists what the model found for each case, then the score, the tokens, the cost and the time per call. `EVAL_MODEL=claude-sonnet-5-5 npm run eval` compares another model. The evals never run in CI: they cost money and their answers vary from run to run. The grading code itself is unit-tested.
 
 ## Status
 

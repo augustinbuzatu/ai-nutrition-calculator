@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function LogMealPage() {
-  // Checks for the OpenAI key on each request, not once at build time: CI
+  // Checks for the Anthropic key on each request, not once at build time: CI
   // builds without it.
   await connection();
   const canDescribe = isParserConfigured();

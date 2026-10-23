@@ -1,4 +1,7 @@
-import { openai } from "@ai-sdk/openai";
+import {
+  type AnthropicLanguageModelOptions,
+  anthropic,
+} from "@ai-sdk/anthropic";
 import { type LanguageModel, Output, generateText } from "ai";
 import * as z from "zod";
 import { roundTo } from "@/lib/math";
@@ -14,12 +17,12 @@ import { INSTRUCTIONS } from "./instructions";
 // food. The model only reads the text and recalls typical values; the form's
 // rules then check every food, and the calculator does the math.
 
-/** The cheapest current OpenAI model; `npm run eval` checks it is good enough. */
-export const PARSER_MODEL = "gpt-6-luna";
+/** The cheapest current Claude model; `npm run eval` checks it is good enough. */
+export const PARSER_MODEL = "claude-haiku-5-5";
 
 /** Without a key, the log page offers only the manual form. */
 export function isParserConfigured(): boolean {
-  return Boolean(process.env.OPENAI_API_KEY);
+  return Boolean(process.env.ANTHROPIC_API_KEY);
 }
 
 /**
@@ -62,7 +65,7 @@ const BASIS_FOR_UNIT = {
 
 export async function parseMealDescription(
   text: string,
-  model: LanguageModel = openai(PARSER_MODEL),
+  model: LanguageModel = anthropic(PARSER_MODEL),
 ): Promise<ParseResult> {
   const description = text.trim();
   if (description === "") return { ok: false, error: "Describe what you ate." };
@@ -83,14 +86,14 @@ export async function parseMealDescription(
       // instructions, so text like "ignore the rules" stays something to read.
       prompt: description,
       output: Output.object({ schema: answerSchema }),
-      reasoning: "low",
       // A meal takes a few hundred tokens; the cap bounds the cost of a call.
       maxOutputTokens: 4000,
       timeout: 30_000,
       providerOptions: {
-        // OpenAI would otherwise keep the response for 30 days, and send
-        // summaries of the model's reasoning that nothing reads.
-        openai: { store: false, reasoningSummary: null },
+        // Recalling typical values needs little thinking. Set here rather than
+        // with the top-level `reasoning`, which would also ask for summaries of
+        // the thinking that nothing reads.
+        anthropic: { effort: "low" } satisfies AnthropicLanguageModelOptions,
       },
     });
     foods = result.output.foods;
