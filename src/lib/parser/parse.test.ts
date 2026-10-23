@@ -2,6 +2,7 @@ import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_DESCRIPTION_LENGTH, parseMeal } from "@/lib/meals/form";
 import { INSTRUCTIONS } from "./instructions";
+import { languageModel } from "./model";
 import { isParserConfigured, parseMealDescription } from "./parse";
 
 const chicken = {
@@ -255,6 +256,8 @@ describe("parseMealDescription with OpenAI", () => {
 
   it("asks for strict JSON, low reasoning and no stored response", async () => {
     vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    // OpenAI wins when both keys are set: Claude only fills in until then.
+    vi.stubEnv("APP_ANTHROPIC_API_KEY", "sk-ant-app");
     const fetch = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(
       async () =>
         Response.json({
@@ -304,15 +307,110 @@ describe("parseMealDescription with OpenAI", () => {
   });
 });
 
+describe("parseMealDescription with Claude", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("uses the app's key and Anthropic's API, not the defaults in the environment", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("APP_ANTHROPIC_API_KEY", "sk-ant-app");
+    // What another tool in a hosted dev environment may set for itself.
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-other-tool");
+    vi.stubEnv("ANTHROPIC_BASE_URL", "https://other-tool.invalid/v1");
+    const fetch = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(
+      async () =>
+        Response.json({
+          id: "msg_1",
+          type: "message",
+          role: "assistant",
+          model: "claude-haiku-5-5",
+          content: [
+            // Adaptive thinking comes first, empty unless asked for.
+            { type: "thinking", thinking: "", signature: "sig" },
+            { type: "text", text: JSON.stringify({ foods: [chicken] }) },
+          ],
+          stop_reason: "end_turn",
+          stop_sequence: null,
+          usage: { input_tokens: 500, output_tokens: 100 },
+        }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    const result = await parseMealDescription("150 g piept de pui");
+
+    expect(result).toMatchObject({
+      ok: true,
+      meals: [{ fields: { name: "Piept de pui", kcal: "165" } }],
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toBe("https://api.anthropic.com/v1/messages");
+    expect(new Headers(init.headers).get("x-api-key")).toBe("sk-ant-app");
+    const body = JSON.parse(String(init.body));
+    expect(body).toMatchObject({
+      model: "claude-haiku-5-5",
+      max_tokens: 4000,
+      output_config: { effort: "low", format: { type: "json_schema" } },
+    });
+    // The API rejects sampling settings since October 2026.
+    expect(body).not.toHaveProperty("temperature");
+  });
+});
+
+describe("languageModel for Claude without the app's key", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("never falls back to another tool's key", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("APP_ANTHROPIC_API_KEY", undefined);
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-other-tool");
+    const fetch = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(
+      async () =>
+        Response.json(
+          {
+            type: "error",
+            error: {
+              type: "authentication_error",
+              message: "invalid x-api-key",
+            },
+          },
+          { status: 401 },
+        ),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await parseMealDescription("pizza", languageModel("claude-haiku-5-5"));
+
+    const [, init] = fetch.mock.calls[0];
+    expect(new Headers(init.headers).get("x-api-key")).toBe("");
+  });
+});
+
 describe("isParserConfigured", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it("needs an OpenAI key", () => {
+  it("needs an OpenAI or an Anthropic key", () => {
     vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("APP_ANTHROPIC_API_KEY", "");
     expect(isParserConfigured()).toBe(false);
+    vi.stubEnv("APP_ANTHROPIC_API_KEY", "sk-ant-app");
+    expect(isParserConfigured()).toBe(true);
+    vi.stubEnv("APP_ANTHROPIC_API_KEY", "");
     vi.stubEnv("OPENAI_API_KEY", "sk-test");
     expect(isParserConfigured()).toBe(true);
+  });
+
+  it("ignores another tool's key", () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("APP_ANTHROPIC_API_KEY", "");
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-other-tool");
+    expect(isParserConfigured()).toBe(false);
   });
 });

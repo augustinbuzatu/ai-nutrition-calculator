@@ -12,15 +12,15 @@ Augustin's personal and portfolio project (Cybernetics student, ASE Bucharest; w
 - One PR per task, from the branch the session assigns, into `main`. Augustin merges, preferably with "Rebase and merge". Reset the branch onto `origin/main` before each new task.
 - Commits: Conventional Commits, small and topical, with `Augustin <augustinbuzatu@gmail.com>` as the only author and no trailers. PR descriptions end after the testing section, with no footer.
 - Never schedule check-ins (`send_later`, triggers) or subscribe to PR activity: they cost money. Augustin says when he has merged.
-- Never ask for keys, tokens or passwords in the chat. The `sb_secret_` key and `OPENAI_API_KEY` never go into code, `NEXT_PUBLIC_` variables, the chat or GitHub. `.env.local` is gitignored.
+- Never ask for keys, tokens or passwords in the chat. The `sb_secret_` key, `OPENAI_API_KEY` and `APP_ANTHROPIC_API_KEY` never go into code, `NEXT_PUBLIC_` variables, the chat or GitHub. `.env.local` is gitignored.
 
 ## Stack
 
-Next.js 16 (App Router, Server Components, Server Actions, React Compiler) · React 19 · TypeScript (strict) · Tailwind CSS v4 (configured in CSS) · shadcn/ui (base-nova, Base UI primitives) · Zod 4 · Supabase (Postgres with RLS, Auth with email and password, `@supabase/ssr`) · Vercel AI SDK 7 + OpenAI (`gpt-6-luna`) · Vitest · PGlite · ESLint 9 · Prettier · GitHub Actions.
+Next.js 16 (App Router, Server Components, Server Actions, React Compiler) · React 19 · TypeScript (strict) · Tailwind CSS v4 (configured in CSS) · shadcn/ui (base-nova, Base UI primitives) · Zod 4 · Supabase (Postgres with RLS, Auth with email and password, `@supabase/ssr`) · Vercel AI SDK 7 + OpenAI (`gpt-6-luna`), or Anthropic (`claude-haiku-5-5`) until the OpenAI key is in place · Vitest · PGlite · ESLint 9 · Prettier · GitHub Actions.
 
 ## Commands
 
-`npm ci` · `npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` (runs `next typegen` first) · `npm test` · `npm run format` / `format:check` · `npm run db:types` (regenerates `src/lib/supabase/database.types.ts` from the linked project) · `npm run eval` (grades the parser against the real model; needs `OPENAI_API_KEY`).
+`npm ci` · `npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` (runs `next typegen` first) · `npm test` · `npm run format` / `format:check` · `npm run db:types` (regenerates `src/lib/supabase/database.types.ts` from the linked project) · `npm run eval` (grades the parser against the real model; needs `OPENAI_API_KEY` or `APP_ANTHROPIC_API_KEY`).
 
 CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five before pushing; `build` must pass without `.env.local`.
 
@@ -33,7 +33,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `src/lib/goals/`: limits (mirror the DB constraints), Zod schema, `getGoals()`, `saveGoals()`, and `estimate.ts` (Mifflin-St Jeor calculator, browser only).
 - `src/lib/diary/`: `todayIn()` (today's date in the user's time zone), progress status for the stat tiles, `getTodaysDiary()`.
 - `src/lib/meals/`: the meal form's rules (`form.ts`, shared by the browser preview and the server), `submission.ts` (reads the log page's cards on the server, with Zod), `getMeal()`, and the `addMeals` / `updateMeal` / `deleteMeal` Server Actions.
-- `src/lib/parser/`: `parseMealDescription()` turns a description into the meal form's fields, one set per food, with OpenAI; the model's instructions are in `instructions.ts`. `describeMeal` is its Server Action, and `isParserConfigured()` checks for the key.
+- `src/lib/parser/`: `parseMealDescription()` turns a description into the meal form's fields, one set per food, with OpenAI or Claude; the model's instructions are in `instructions.ts`, the choice of provider and model in `model.ts` (OpenAI wins when both keys are set). `describeMeal` is its Server Action, and `isParserConfigured()` checks for a key.
 - `evals/`: the parser's eval set (`cases.ts`, with USDA-based ranges), the grader (`grade.ts`, unit-tested in `npm test`) and the runner (`parser.eval.ts`, its own Vitest config).
 - `src/components/log-meal-form.tsx` and `meal-card.tsx`: the log page, where a description becomes one editable card per food.
 - `src/lib/input.ts`: `parseNumberInput()` (strict numbers, decimal comma) and `isKeyOf()`.
@@ -52,7 +52,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Number fields use `type="text"` with `inputMode` and strict parsing, never `z.coerce.number()`.
 - Keep Zod out of client components; client-side checks are plain functions.
 - The LLM only reads text and recalls typical values, never does math. Its answer is untrusted input: a strict schema with types only, then the meal form's rules, food by food.
-- Tests never call a real model: use `MockLanguageModelV4` from `ai/test`, or stub `fetch` to check the request sent to OpenAI. Only `npm run eval` calls OpenAI, on request, never in CI.
+- Tests never call a real model: use `MockLanguageModelV4` from `ai/test`, or stub `fetch` to check the request sent to the provider. Only `npm run eval` calls a real model, on request, never in CI.
 - After changing the parser's instructions, schema or model, run `npm run eval` and compare with the last report.
 - Comments explain why, briefly. Prettier formats everything, with LF line endings.
 - Mobile-first, phone-width column (`max-w-md`). Check 360 px and dark mode.
@@ -75,6 +75,9 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Keep a number and its unit together with a non-breaking space (`\u00a0`), or "7.2" and "g" can wrap apart.
 - AI SDK 7 differs from older examples: `system` is now `instructions`, and structured output is `generateText` with `output: Output.object(...)`. Read `node_modules/ai/docs/` and `node_modules/@ai-sdk/openai/docs/`.
 - OpenAI's strict Structured Outputs need every field: use `.nullable()`, never `.optional()`.
+- In this cloud environment, `ANTHROPIC_API_KEY` and `ANTHROPIC_BASE_URL` are already set for other tools, and `@ai-sdk/anthropic` reads both by default: the app's key is `APP_ANTHROPIC_API_KEY`, and `model.ts` passes the key and `https://api.anthropic.com/v1` explicitly.
+- Keys for this environment go under Environment variables (caret after the session title, then Edit cloud environment). Network secrets never reach `api.anthropic.com`. A new variable shows up in new sessions, or once the session's VM restarts.
+- Keep the `ai` and `@ai-sdk/*` packages on matching releases: a provider built on a newer `@ai-sdk/provider` fails the type check.
 
 ## Verifying changes
 
@@ -102,7 +105,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Task 4.2, the log page: a description becomes editable cards, saved together.
   - Task 4.3, the eval set: 22 descriptions graded through the app's own rules (`npm run eval`).
 - Stage 4, AI parser:
-  - Next: run `npm run eval` with Augustin's key, record the baseline in the README, and tune the instructions where cases fail.
+  - Next: run `npm run eval` with Augustin's Anthropic key (Claude Haiku 5.5, about a cent per run, about 3 USD of credit), record the baseline in the README, and tune the instructions where cases fail. Move to OpenAI once its key is in place.
 - Stage 5, real data sources:
   - 5.1: a cache in `foods` with fuzzy search (`pg_trgm`).
   - 5.2: USDA FoodData Central.
