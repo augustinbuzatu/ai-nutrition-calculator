@@ -12,7 +12,7 @@ Log your meals in plain language, in English or Romanian, and get accurate calor
 LLMs are great at understanding language and bad at arithmetic, so this app splits the job:
 
 1. **Parse**: an LLM turns free text into structured data (food, amount, unit), enforced with Structured Outputs and validated with Zod.
-2. **Resolve**: nutrition values come from trusted sources: a local cache, USDA FoodData Central, Open Food Facts, and official restaurant data found through web search. Until those are wired in, the LLM estimates typical values, and step 3 checks them.
+2. **Resolve**: nutrition values come from trusted sources: a local cache, official restaurant and shop data found through web search, USDA FoodData Central and Open Food Facts. Until those are wired in, the LLM estimates typical values, and step 3 checks them.
 3. **Validate**: every value is checked against physical limits and the Atwater factors (4/4/9 kcal per gram of protein/carbs/fat).
 4. **Calculate**: all math is done by deterministic, unit-tested TypeScript. The model never does arithmetic.
 
@@ -122,4 +122,4 @@ Work in progress: Phase 1 (MVP). What works today:
 - Meals can be described in plain language, in English or Romanian: each food becomes an editable card with the estimated values, and nothing is saved until the user confirms.
 - Foods can also be added by hand from a label or a menu (values per 100 g, per 100 ml or per serving), with a live preview and plausibility checks, then edited or deleted.
 
-Next: the parser's first eval baseline, then nutrition values from real sources.
+Next: the parser's first eval baseline, then a food cache and a web-search agent for restaurant and shop data.
