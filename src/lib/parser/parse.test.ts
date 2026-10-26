@@ -351,10 +351,12 @@ describe("parseMealDescription with Claude", () => {
     expect(body).toMatchObject({
       model: "claude-haiku-5-5",
       max_tokens: 4000,
-      output_config: { effort: "low", format: { type: "json_schema" } },
+      output_config: { effort: "medium", format: { type: "json_schema" } },
     });
     // The API rejects sampling settings since October 2026.
     expect(body).not.toHaveProperty("temperature");
+    // Thinking stays the model's default, without summaries nothing reads.
+    expect(body).not.toHaveProperty("thinking");
   });
 });
 

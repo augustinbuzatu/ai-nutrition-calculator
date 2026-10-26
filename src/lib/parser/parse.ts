@@ -1,3 +1,4 @@
+import type { AnthropicLanguageModelOptions } from "@ai-sdk/anthropic";
 import { type LanguageModel, Output, generateText } from "ai";
 import * as z from "zod";
 import { roundTo } from "@/lib/math";
@@ -88,6 +89,10 @@ export async function parseMealDescription(
         // OpenAI would otherwise keep the response for 30 days, and send
         // summaries of the model's reasoning that nothing reads.
         openai: { store: false, reasoningSummary: null },
+        // Set here, Claude's effort overrides `reasoning`, which would also
+        // ask for summaries of its thinking that nothing reads. At low effort,
+        // Haiku sometimes gave a whole serving the values per 100 g.
+        anthropic: { effort: "medium" } satisfies AnthropicLanguageModelOptions,
       },
     });
     foods = result.output.foods;

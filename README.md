@@ -95,7 +95,7 @@ The proxy is a convenience, not the security boundary: the database checks every
 - The model (OpenAI's `gpt-6-luna`, or Claude Haiku 5.5 until the OpenAI key is in place, through the Vercel AI SDK) reads the text and gives, for each food, a name, an amount, a unit and typical values per 100 g, per 100 ml or per serving. It never multiplies: the calculator does.
 - Structured Outputs in strict mode make the answer match a Zod schema. The schema has types only: limits and plausibility are checked food by food afterwards, so one odd value does not throw away the rest.
 - The model gives only the unit; the basis (per 100 g, per 100 ml or per serving) follows from it, so the two can never disagree.
-- The description is sent as the user's message, apart from the instructions. Requests set `store: false`, so OpenAI does not keep the response, and cap the answer at 4,000 tokens.
+- The description is sent as the user's message, apart from the instructions. Requests set `store: false`, so OpenAI does not keep the response, and cap the answer at 4,000 tokens. Claude runs at medium effort: at low, it sometimes gave a whole serving the values per 100 g, and passed 18 to 20 of the 22 eval cases, against 21 or 22 at medium.
 - The tests replace the model with the AI SDK's mock, and `fetch` with a fake OpenAI or Anthropic API, so they run offline and for free, and check the exact request the app sends.
 - Switching providers is one line, since the AI SDK keeps the rest of the code the same. The Anthropic provider gets its key and address explicitly, never from `ANTHROPIC_API_KEY` or `ANTHROPIC_BASE_URL`: hosted dev environments often set those for other tools.
 

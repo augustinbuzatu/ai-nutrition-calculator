@@ -15,5 +15,8 @@ export default defineConfig({
     testTimeout: 60_000,
     // A few calls at a time stays within a new account's rate limits.
     maxConcurrency: 5,
+    // Under a coding agent, Vitest's default reporter hides the logs of
+    // passing tests, and with them the report when every case passes.
+    reporters: ["default"],
   },
 });

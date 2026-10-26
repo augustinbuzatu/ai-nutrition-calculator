@@ -78,6 +78,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - In this cloud environment, `ANTHROPIC_API_KEY` and `ANTHROPIC_BASE_URL` are already set for other tools, and `@ai-sdk/anthropic` reads both by default: the app's key is `APP_ANTHROPIC_API_KEY`, and `model.ts` passes the key and `https://api.anthropic.com/v1` explicitly.
 - Keys for this environment go under Environment variables (caret after the session title, then Edit cloud environment). Network secrets never reach `api.anthropic.com`. A new variable shows up in new sessions, or once the session's VM restarts.
 - Keep the `ai` and `@ai-sdk/*` packages on matching releases: a provider built on a newer `@ai-sdk/provider` fails the type check.
+- Set Claude's effort in `providerOptions.anthropic` (medium, chosen with `npm run eval`). It overrides the top-level `reasoning`, which on Claude also asks for thinking summaries that nothing reads.
+- Under a coding agent, Vitest's default reporter hides what passing tests log: the eval config sets `reporters: ["default"]`, or a run where every case passes prints no report.
 
 ## Verifying changes
 
