@@ -110,9 +110,9 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Next: run `npm run eval` with Augustin's Anthropic key (Claude Haiku 5.5, about a cent per run, about 3 USD of credit), record the baseline in the README, and tune the instructions where cases fail. Move to OpenAI once its key is in place.
 - Stage 5, real data sources:
   - 5.1: a cache in `foods` with fuzzy search (`pg_trgm`).
-  - 5.2: USDA FoodData Central.
-  - 5.3: Open Food Facts.
-  - 5.4: a web-search agent for restaurants (e.g. KFC).
+  - 5.2: a web-search agent for restaurants and shops (e.g. KFC, a supermarket's product pages), saving what it finds in the 5.1 cache. Augustin's most important feature: propose its design (scope, tools, cost per search) before building it.
+  - 5.3: USDA FoodData Central.
+  - 5.4: Open Food Facts.
   - 5.5: source badges in the UI.
 - Stage 6, launch:
   - 6.1: deploy on Vercel. First, limit AI calls per user per day: anyone can sign up, and each call costs money. Augustin chose a demo account for recruiters; keys stay on the server (no bring-your-own-key for now).
