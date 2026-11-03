@@ -98,6 +98,39 @@ describe("gradeCase", () => {
     ]);
   });
 
+  it("describes a serving with what one serving is", () => {
+    const eggs: EvalCase = {
+      description: "2 ouă fierte",
+      why: "test",
+      foods: [
+        {
+          name: /ou/,
+          amount: { value: 2, unit: "serving" },
+          kcal: [130, 180],
+          proteinG: [10, 15],
+        },
+      ],
+    };
+    expect(
+      gradeCase(
+        eggs,
+        found({
+          ...chicken,
+          name: "Ou fiert",
+          basis: "perServing",
+          servingLabel: "1 ou",
+          kcal: "78",
+          proteinG: "6.3",
+          amount: "2",
+          unit: "serving",
+        }),
+      ),
+    ).toEqual({
+      failures: [],
+      found: ["Ou fiert: 2 servings of “1 ou”, 156 kcal, 12.6 g protein"],
+    });
+  });
+
   it("reports servings where grams were given", () => {
     expect(
       gradeCase(

@@ -109,7 +109,22 @@ Unit tests prove the code around the model works; they cannot tell whether the m
 - **Values:** what each food adds, in kcal and protein, within a range built from USDA FoodData Central values. The ranges are wide on purpose, to catch gross errors (kJ for kcal, raw rice read as cooked, a portion counted twice), not a few percent.
 - **Hard cases:** Romanian dishes (mici, sarmale, ciorbă de burtă), decimal commas, household measures, restaurants, text that tries to give the model orders, and text with no food at all.
 
-The report lists what the model found for each case, then the score, the tokens, the cost and the time per call. `EVAL_MODEL=claude-opus-5-5 npm run eval` compares another model, from either provider. The evals never run in CI: they cost money and their answers vary from run to run. The grading code itself is unit-tested.
+The report lists what the model found for each case, with what one serving is ("2 servings of “1 ou”"), then the score, the tokens, the cost and the time per call. `EVAL_MODEL=claude-opus-5-5 npm run eval` compares another model, from either provider. The evals never run in CI: they cost money and their answers vary from run to run. The grading code itself is unit-tested.
+
+### Baseline
+
+Claude Haiku 5.5 at medium effort, November 2026, over 8 runs:
+
+| Cases passed (of 22)       | Cost per run | Time per call (average) |
+| -------------------------- | ------------ | ----------------------- |
+| 22 in 4 runs, 21 in 4 runs | about $0.006 | 2.0 to 2.5 s            |
+
+What still fails, now and then:
+
+- **3 KFC Crispy Strips** (3 runs of 8): the model gives about 7 g of protein per strip, where KFC publishes 9 to 13 g, depending on the country. The model does not know this fact well enough; the web-search agent will look it up instead.
+- **Values per 100 g given for a whole serving** (1 run of 8): an apple at 52 kcal instead of about 95. At low effort this happens in most runs, which is why the parser runs at medium.
+
+Telling the model that a serving's values are for the whole serving did not help. At medium effort, the score stayed the same (21.2 on average over 5 runs). At low effort, the mix-up moved from the apple to a portion of sarmale at 190 kcal, about the value of 100 g. The instructions stay as they were.
 
 ## Status
 
@@ -122,4 +137,4 @@ Work in progress: Phase 1 (MVP). What works today:
 - Meals can be described in plain language, in English or Romanian: each food becomes an editable card with the estimated values, and nothing is saved until the user confirms.
 - Foods can also be added by hand from a label or a menu (values per 100 g, per 100 ml or per serving), with a live preview and plausibility checks, then edited or deleted.
 
-Next: the parser's first eval baseline, then a food cache and a web-search agent for restaurant and shop data.
+Next: a food cache, then a web-search agent for restaurant and shop data.

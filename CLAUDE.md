@@ -80,6 +80,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Keep the `ai` and `@ai-sdk/*` packages on matching releases: a provider built on a newer `@ai-sdk/provider` fails the type check.
 - Set Claude's effort in `providerOptions.anthropic` (medium, chosen with `npm run eval`). It overrides the top-level `reasoning`, which on Claude also asks for thinking summaries that nothing reads.
 - Under a coding agent, Vitest's default reporter hides what passing tests log: the eval config sets `reporters: ["default"]`, or a run where every case passes prints no report.
+- For a serving, the model sometimes gives the values of 100 g, mostly at low effort. Telling it that a serving's values are for the whole serving only moved the mix-up to other foods (README, Baseline). Judge instruction changes over several eval runs, at the effort the app uses.
 
 ## Verifying changes
 
@@ -106,10 +107,11 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Task 4.1, the meal parser: AI SDK + OpenAI with a strict schema.
   - Task 4.2, the log page: a description becomes editable cards, saved together.
   - Task 4.3, the eval set: 22 descriptions graded through the app's own rules (`npm run eval`).
+  - Task 4.4, the eval baseline in the README: Claude Haiku 5.5 passes 21 or 22 of 22.
 - Stage 4, AI parser:
-  - Next: run `npm run eval` with Augustin's Anthropic key (Claude Haiku 5.5, about a cent per run, about 3 USD of credit), record the baseline in the README, and tune the instructions where cases fail. Move to OpenAI once its key is in place.
+  - Later: move to OpenAI once its key is in place, and compare it with the baseline. Augustin has about 3 USD of Anthropic credit; an eval run costs under a cent.
 - Stage 5, real data sources:
-  - 5.1: a cache in `foods` with fuzzy search (`pg_trgm`).
+  - 5.1 (next): a cache in `foods` with fuzzy search (`pg_trgm`).
   - 5.2: a web-search agent for restaurants and shops (e.g. KFC, a supermarket's product pages), saving what it finds in the 5.1 cache. Augustin's most important feature: propose its design (scope, tools, cost per search) before building it.
   - 5.3: USDA FoodData Central.
   - 5.4: Open Food Facts.

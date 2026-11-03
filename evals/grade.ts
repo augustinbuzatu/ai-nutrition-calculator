@@ -115,10 +115,12 @@ function describeMeal({ fields }: ParsedMeal): string {
   const parsed = parseMeal(fields);
   if (!parsed.ok) return `${fields.name}: rejected by the form`;
   const check = checkMeal(parsed.meal);
-  const quantity = formatQuantity(
-    parsed.meal.quantity.amount,
-    parsed.meal.quantity.unit,
-  );
+  const { facts, quantity: eaten } = parsed.meal;
+  // What one serving is shows whether its values fit it: "1 sarma" at
+  // 190 kcal is right, "1 porție" at 190 kcal is not.
+  const quantity =
+    formatQuantity(eaten.amount, eaten.unit) +
+    (facts.basis === "perServing" ? ` of “${facts.serving.label}”` : "");
   if (!check.ok) return `${fields.name}: ${quantity}, ${check.error}`;
   const { kcal, proteinG } = check.nutrients;
   return `${fields.name}: ${quantity}, ${formatNumber(Math.round(kcal))} kcal, ${formatNumber(Math.round(proteinG * 10) / 10)} g protein`;
