@@ -15,6 +15,7 @@ const chicken = {
   carbsG: 0,
   fatG: 3.6,
   note: null,
+  place: null,
 };
 const eggs = {
   name: "Ouă fierte",
@@ -26,6 +27,7 @@ const eggs = {
   carbsG: 0.6,
   fatG: 5.3,
   note: "Assumed large eggs.",
+  place: null,
 };
 
 /** A model that answers every call with this text. */
@@ -82,6 +84,7 @@ describe("parseMealDescription", () => {
             unit: "g",
           },
           note: null,
+          place: null,
         },
         {
           fields: {
@@ -96,9 +99,31 @@ describe("parseMealDescription", () => {
             unit: "serving",
           },
           note: "Assumed large eggs.",
+          place: null,
         },
       ],
     });
+  });
+
+  it("keeps the restaurant or shop a food comes from, trimmed, or null", async () => {
+    const strips = {
+      ...chicken,
+      name: "KFC Crispy Strips",
+      unit: "serving",
+      servingLabel: "1 strip",
+      amount: 3,
+      place: " KFC ",
+    };
+    const result = await parseMealDescription(
+      "3 crispy strips de la KFC și piept de pui",
+      modelAnswering(
+        JSON.stringify({ foods: [strips, { ...chicken, place: " " }] }),
+      ),
+    );
+    expect(result.ok && result.meals.map((meal) => meal.place)).toEqual([
+      "KFC",
+      null,
+    ]);
   });
 
   it.each([

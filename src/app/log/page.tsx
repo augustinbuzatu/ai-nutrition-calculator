@@ -12,9 +12,13 @@ export const metadata: Metadata = {
   title: "Log a meal",
 };
 
+// The Server Actions on this page share its time limit. Reading a meal takes
+// a few seconds; looking a restaurant's food up on its site, up to about 20.
+export const maxDuration = 60;
+
 export default async function LogMealPage() {
-  // Checks for the OpenAI key on each request, not once at build time: CI
-  // builds without it.
+  // Checks for an AI key on each request, not once at build time: CI builds
+  // without one.
   await connection();
   const canDescribe = isParserConfigured();
 

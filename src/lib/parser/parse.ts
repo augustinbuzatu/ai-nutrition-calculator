@@ -36,14 +36,28 @@ const answerSchema = z.object({
       carbsG: z.number(),
       fatG: z.number(),
       note: z.string().nullable(),
+      place: z
+        .string()
+        .nullable()
+        .describe(
+          'The restaurant or shop the description names for this food ("de la KFC" gives "KFC"), or the one chain that sells it (a Big Mac: "McDonald\'s"); otherwise null. A brand such as Coca-Cola is not a place.',
+        ),
     }),
   ),
 });
 
 type ParsedFood = z.infer<typeof answerSchema>["foods"][number];
 
-/** A food the model found, as the fields of the meal form, to check and edit. */
-export type ParsedMeal = { fields: MealFields; note: string | null };
+/**
+ * A food the model found, as the fields of the meal form, to check and edit.
+ * `place` is the restaurant or shop it came from, when the description says:
+ * only then are its published values looked up on the web.
+ */
+export type ParsedMeal = {
+  fields: MealFields;
+  note: string | null;
+  place: string | null;
+};
 
 export type ParseResult =
   { ok: true; meals: ParsedMeal[] } | { ok: false; error: string };
@@ -118,6 +132,7 @@ export async function parseMealDescription(
     meals: foods.map((food) => ({
       fields: toMealFields(food),
       note: food.note,
+      place: food.place?.trim() || null,
     })),
   };
 }
