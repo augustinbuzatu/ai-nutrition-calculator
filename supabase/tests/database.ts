@@ -1,13 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { PGlite, type Transaction } from "@electric-sql/pglite";
+import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
+import { unaccent } from "@electric-sql/pglite/contrib/unaccent";
 
 const migrationsDir = new URL("../migrations/", import.meta.url);
 
 /**
  * Stand-ins for what every Supabase project already has: the anon,
- * authenticated and service_role roles, the auth.users table, and auth.uid(),
- * which reads the signed-in user's id from the request's token.
+ * authenticated and service_role roles, the auth.users table, auth.uid(),
+ * which reads the signed-in user's id from the request's token, and the
+ * extensions schema that extensions are installed into.
  */
 const supabaseStubs = `
   create role anon nologin noinherit;
@@ -20,7 +23,9 @@ const supabaseStubs = `
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
   $$;
 
-  grant usage on schema public, auth to anon, authenticated, service_role;
+  create schema extensions;
+
+  grant usage on schema public, auth, extensions to anon, authenticated, service_role;
   -- Supabase grants these by default; the migrations must narrow them down.
   alter default privileges in schema public
     grant all on tables to anon, authenticated, service_role;
@@ -28,7 +33,8 @@ const supabaseStubs = `
 
 /** A fresh in-memory Postgres (PGlite) with every migration applied in order. */
 export async function createTestDatabase(): Promise<PGlite> {
-  const db = new PGlite();
+  // The extensions the migrations create, which PGlite loads on request.
+  const db = new PGlite({ extensions: { pg_trgm, unaccent } });
   await db.exec(supabaseStubs);
   const files = readdirSync(migrationsDir)
     .filter((file) => file.endsWith(".sql"))

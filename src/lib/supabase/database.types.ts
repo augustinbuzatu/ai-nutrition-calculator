@@ -78,6 +78,7 @@ export type Database = {
           kcal: number;
           name: string;
           protein_g: number;
+          search_text: string | null;
           serving_grams: number | null;
           serving_label: string | null;
           serving_ml: number | null;
@@ -96,6 +97,7 @@ export type Database = {
           kcal: number;
           name: string;
           protein_g: number;
+          search_text?: never;
           serving_grams?: number | null;
           serving_label?: string | null;
           serving_ml?: number | null;
@@ -113,6 +115,7 @@ export type Database = {
           kcal?: number;
           name?: string;
           protein_g?: number;
+          search_text?: never;
           serving_grams?: number | null;
           serving_label?: string | null;
           serving_ml?: number | null;
@@ -151,7 +154,27 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      food_search_text: {
+        Args: { brand: string; name: string };
+        Returns: string;
+      };
+      search_foods: {
+        Args: { max_results?: number; query: string };
+        Returns: {
+          basis: Database["public"]["Enums"]["nutrition_basis"];
+          brand: string;
+          carbs_g: number;
+          fat_g: number;
+          id: string;
+          kcal: number;
+          name: string;
+          protein_g: number;
+          serving_label: string;
+          similarity: number;
+          source: Database["public"]["Enums"]["food_source"];
+          source_url: string;
+        }[];
+      };
     };
     Enums: {
       food_source: "usda" | "openfoodfacts" | "web" | "ai_estimate" | "user";

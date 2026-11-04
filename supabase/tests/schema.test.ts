@@ -192,6 +192,95 @@ describe("foods", () => {
   });
 });
 
+describe("food search", () => {
+  /** Adds a catalog food, the way the server will cache one. */
+  function addCatalogFood(name: string, brand: string | null = null) {
+    return db.query(
+      `insert into public.foods
+         (name, brand, basis, kcal, protein_g, carbs_g, fat_g, serving_label, source)
+       values ($1, $2, 'perServing', 130, 10, 8, 6, '1 piece', 'web')`,
+      [name, brand],
+    );
+  }
+
+  function search(userId: string, query: string, maxResults?: number) {
+    return asUser(db, userId, (tx) =>
+      tx.query<{ name: string; brand: string | null; similarity: number }>(
+        maxResults === undefined
+          ? "select name, brand, similarity from public.search_foods($1)"
+          : "select name, brand, similarity from public.search_foods($1, $2)",
+        maxResults === undefined ? [query] : [query, maxResults],
+      ),
+    ).then((result) => result.rows);
+  }
+
+  beforeAll(async () => {
+    await addCatalogFood("Crispy Strips", "KFC");
+    await addCatalogFood("Hot Wings", "KFC");
+    await addCatalogFood("McDonald's Big Mac", "McDonald's");
+    await addCatalogFood("Ciorbă de burtă");
+  });
+
+  it("ignores diacritics, case, word order and apostrophes", async () => {
+    const alice = await createUser(db);
+    for (const [query, name] of [
+      ["ciorba de burta", "Ciorbă de burtă"],
+      ["crispy strips kfc", "Crispy Strips"],
+      ["McDonalds Big Mac", "McDonald's Big Mac"],
+    ]) {
+      const [best] = await search(alice, query);
+      expect(best).toMatchObject({ name, similarity: 1 });
+    }
+  });
+
+  it("ranks the closest food first and leaves out foods that are not alike", async () => {
+    const alice = await createUser(db);
+    const found = await search(alice, "KFC Crispy Strip");
+    expect(found.map((food) => food.name)).toEqual(["Crispy Strips"]);
+    expect(found[0].similarity).toBeGreaterThan(0.8);
+    expect(found[0].similarity).toBeLessThan(1);
+  });
+
+  it("finds a user's own foods, never another user's", async () => {
+    const alice = await createUser(db);
+    const bob = await createUser(db);
+    const name = `Tort de casă ${randomUUID()}`;
+    await asUser(db, alice, (tx) => addFood(tx, name));
+
+    expect((await search(alice, name)).map((food) => food.name)).toContain(
+      name,
+    );
+    expect((await search(bob, name)).map((food) => food.name)).not.toContain(
+      name,
+    );
+  });
+
+  it("returns between 1 and 20 foods, whatever the caller asks for", async () => {
+    const alice = await createUser(db);
+    for (let i = 1; i <= 21; i++) await addCatalogFood(`Supă cremă ${i}`);
+
+    expect(await search(alice, "supa crema", 1000)).toHaveLength(20);
+    expect(await search(alice, "supa crema", 0)).toHaveLength(1);
+  });
+
+  it("stores the brand once, even when the name already includes it", async () => {
+    const { rows } = await db.query<{ search_text: string }>(
+      "select search_text from public.foods where name = $1",
+      ["McDonald's Big Mac"],
+    );
+    expect(rows[0].search_text).toBe("mcdonalds big mac");
+  });
+
+  it("is not open to anonymous visitors", async () => {
+    const searchAnonymously = asAnonymous(db, (tx) =>
+      tx.query("select * from public.search_foods('kfc')"),
+    );
+    await expect(searchAnonymously).rejects.toThrow(
+      /permission denied for function search_foods/,
+    );
+  });
+});
+
 describe("anonymous visitors", () => {
   it.each(["profiles", "foods", "food_entries"])(
     "cannot read %s",
