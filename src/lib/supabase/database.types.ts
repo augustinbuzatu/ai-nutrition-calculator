@@ -169,7 +169,9 @@ export type Database = {
           kcal: number;
           name: string;
           protein_g: number;
+          serving_grams: number;
           serving_label: string;
+          serving_ml: number;
           similarity: number;
           source: Database["public"]["Enums"]["food_source"];
           source_url: string;

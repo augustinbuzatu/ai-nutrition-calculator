@@ -42,7 +42,7 @@ const EMPTY: MealFields = {
 };
 
 const DESCRIPTION_HINT =
-  "In English or Romanian, with amounts if you know them.";
+  "In English or Romanian, with amounts if you know them. Name the restaurant or shop (“de la KFC”) to use the values it publishes.";
 
 /**
  * The log page: a description becomes one editable card per food, and cards
@@ -177,6 +177,12 @@ export function LogMealForm({ canDescribe }: { canDescribe: boolean }) {
           <Button type="submit" size="lg" disabled={reading}>
             {reading ? "Reading…" : "Read meal"}
           </Button>
+          {reading && (
+            <p className="text-sm text-muted-foreground">
+              Food from a restaurant or shop is looked up on its site, which can
+              take up to 20 seconds.
+            </p>
+          )}
           <p role="status" className="sr-only">
             {status}
           </p>

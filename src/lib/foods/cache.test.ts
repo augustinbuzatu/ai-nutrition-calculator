@@ -18,6 +18,8 @@ const row = {
   carbs_g: 8,
   fat_g: 6.5,
   serving_label: "1 strip",
+  serving_grams: null,
+  serving_ml: null,
   source: "web" as const,
   source_url: "https://www.kfc.ro/meniu",
   similarity: 1,
@@ -49,6 +51,7 @@ const parsedStrips: ParsedMeal = {
     unit: "serving",
   },
   note: "Assumed regular strips.",
+  place: "KFC",
 };
 
 describe("toCachedFood", () => {
@@ -74,6 +77,25 @@ describe("toCachedFood", () => {
 
   it("drops values per serving that do not say what the serving is", () => {
     expect(toCachedFood({ ...row, serving_label: null })).toBeNull();
+  });
+
+  it("keeps what one serving weighs or holds", () => {
+    expect(
+      toCachedFood({
+        ...row,
+        basis: "per100g",
+        serving_label: "1 buc.",
+        serving_grams: 30,
+      })?.facts,
+    ).toEqual({
+      basis: "per100g",
+      nutrients: { kcal: 130, proteinG: 10, carbsG: 8, fatG: 6.5 },
+      serving: { label: "1 buc.", grams: 30 },
+    });
+    expect(
+      toCachedFood({ ...row, serving_label: "1 doză", serving_ml: 330 })?.facts
+        .serving,
+    ).toEqual({ label: "1 doză", ml: 330 });
   });
 });
 
@@ -137,6 +159,7 @@ describe("applyCachedFood", () => {
         unit: "serving",
       },
       note: "Values from kfc.ro.",
+      place: "KFC",
     });
     // The card can be saved as it is.
     expect(applied && parseMeal(applied.fields).ok).toBe(true);
@@ -164,6 +187,7 @@ describe("applyCachedFood", () => {
           unit: "l",
         },
         note: null,
+        place: null,
       },
       milk,
     );
@@ -183,6 +207,58 @@ describe("applyCachedFood", () => {
       facts: { basis: "per100g", nutrients: strips.facts.nutrients },
     };
     expect(applyCachedFood(parsedStrips, per100g)).toBeNull();
+  });
+
+  it("works out one piece from values per 100 g and what a piece weighs", () => {
+    // KFC Romania: 252 kcal and 19.81 g protein per 100 g, one strip is 30 g.
+    const published: CachedFood = {
+      ...strips,
+      facts: {
+        basis: "per100g",
+        nutrients: { kcal: 252, proteinG: 19.81, carbsG: 11.04, fatG: 13.98 },
+        serving: { label: "1 buc.", grams: 30 },
+      },
+    };
+    const applied = applyCachedFood(parsedStrips, published);
+    expect(applied?.fields).toMatchObject({
+      basis: "perServing",
+      servingLabel: "1 buc., 30 g",
+      kcal: "75.6",
+      proteinG: "5.94",
+      carbsG: "3.31",
+      fatG: "4.19",
+      amount: "3",
+      unit: "serving",
+    });
+    expect(applied && parseMeal(applied.fields).ok).toBe(true);
+
+    const labelled: CachedFood = {
+      ...published,
+      facts: {
+        ...published.facts,
+        serving: { label: "1 strip (30 g)", grams: 30 },
+      },
+    };
+    expect(applyCachedFood(parsedStrips, labelled)?.fields.servingLabel).toBe(
+      "1 strip (30 g)",
+    );
+  });
+
+  it("works out one serving from values per 100 ml and what it holds", () => {
+    const cola: CachedFood = {
+      ...strips,
+      name: "Coca-Cola",
+      facts: {
+        basis: "per100ml",
+        nutrients: { kcal: 42, proteinG: 0, carbsG: 10.6, fatG: 0 },
+        serving: { label: "1 doză", ml: 330 },
+      },
+    };
+    expect(applyCachedFood(parsedStrips, cola)?.fields).toMatchObject({
+      servingLabel: "1 doză, 330 ml",
+      kcal: "138.6",
+      carbsG: "34.98",
+    });
   });
 
   it("names where the values come from", () => {

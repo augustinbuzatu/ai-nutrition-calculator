@@ -23,16 +23,23 @@ export function parserProvider(): ParserProvider | null {
   return null;
 }
 
-/** The model for an id: "claude-…" goes to Anthropic, anything else to OpenAI. */
-export function languageModel(modelId: string): Model {
-  if (!modelId.startsWith("claude-")) return openai(modelId);
-  // Never the provider's defaults, ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL:
-  // hosted dev environments often set them for other tools, and that base
-  // URL would send the app's key to another tool's endpoint.
+/**
+ * Anthropic with the app's key and address, for its models and tools. Never
+ * the provider's defaults, ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL: hosted
+ * dev environments often set them for other tools, and that base URL would
+ * send the app's key to another tool's endpoint.
+ */
+export function anthropicProvider() {
   return createAnthropic({
     apiKey: process.env.APP_ANTHROPIC_API_KEY ?? "",
     baseURL: "https://api.anthropic.com/v1",
-  })(modelId);
+  });
+}
+
+/** The model for an id: "claude-…" goes to Anthropic, anything else to OpenAI. */
+export function languageModel(modelId: string): Model {
+  if (!modelId.startsWith("claude-")) return openai(modelId);
+  return anthropicProvider()(modelId);
 }
 
 /** The model the app uses now. */

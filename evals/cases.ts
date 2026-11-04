@@ -173,8 +173,16 @@ export const CASES: EvalCase[] = [
   {
     description: "a can of Coke",
     why: "a brand, and a container for an amount",
-    // Coca-Cola: 139 kcal in a 330 ml can, 140 in a 355 ml one.
-    foods: [{ name: /coca|coke|cola/, kcal: [125, 155], proteinG: [0, 0.5] }],
+    // Coca-Cola: 139 kcal in a 330 ml can, 140 in a 355 ml one. A brand,
+    // not a restaurant or shop: no site to search.
+    foods: [
+      {
+        name: /coca|coke|cola/,
+        kcal: [125, 155],
+        proteinG: [0, 0.5],
+        place: null,
+      },
+    ],
   },
   {
     description: "o bere de 500 ml",
@@ -200,19 +208,40 @@ export const CASES: EvalCase[] = [
         amount: { value: 1, unit: "serving" },
         kcal: [480, 610],
         proteinG: [22, 30],
+        // Sold by one chain only, so it comes from McDonald's.
+        place: /mcdonald/,
       },
     ],
   },
   {
     description: "3 crispy strips de la KFC",
     why: "a restaurant, in mixed Romanian and English",
-    // One strip: about 100 to 150 kcal and 9 to 13 g protein, by country.
+    // KFC Romania: 252 kcal and 19.81 g protein per 100 g, one strip 30 g
+    // (kfc.ro, product information PDF, July 2026), so 227 kcal and 17.8 g
+    // protein for three. Strips elsewhere weigh up to about 47 g.
     foods: [
       {
         name: /kfc|crispy|strip/,
         amount: { value: 3, unit: "serving" },
-        kcal: [270, 480],
-        proteinG: [24, 45],
+        kcal: [190, 480],
+        proteinG: [15, 45],
+        place: /kfc/,
+      },
+    ],
+  },
+  {
+    description: "3 bucăți de pui de la KFC",
+    why: "a restaurant's pieces, as people say them in Romanian",
+    // KFC Romania's Pui Kentucky: 248 kcal and 21.03 g protein per 100 g, one
+    // piece 75 g (kfc.ro, July 2026), so 558 kcal and 47 g protein for three.
+    // Bone-in pieces elsewhere are bigger.
+    foods: [
+      {
+        name: /kfc|pui|chicken/,
+        amount: { value: 3, unit: "serving" },
+        kcal: [400, 1100],
+        proteinG: [35, 100],
+        place: /kfc/,
       },
     ],
   },
@@ -233,7 +262,42 @@ export const CASES: EvalCase[] = [
     description: "o porție de sarmale",
     why: "a Romanian dish with no amount",
     // Three or four cabbage rolls with pork and rice, about 300 g.
-    foods: [{ name: /sarmale|cabbage/, kcal: [300, 600], proteinG: [15, 35] }],
+    foods: [
+      {
+        name: /sarmale|cabbage/,
+        kcal: [300, 600],
+        proteinG: [15, 35],
+        place: null,
+      },
+    ],
+  },
+  {
+    description: "o farfurie mare de pui",
+    why: "a vague portion, estimated: no place, no search",
+    // Chicken, cooked: 165 to 240 kcal and 25 to 31 g protein per 100 g; a
+    // big plate holds about 250 to 400 g.
+    foods: [
+      {
+        name: /pui|chicken/,
+        kcal: [350, 950],
+        proteinG: [45, 125],
+        place: null,
+      },
+    ],
+  },
+  {
+    description: "0,5 l lapte Zuzu 1,5% de la Mega Image",
+    why: "a shop and a brand, with a decimal comma",
+    // Zuzu 1.5%: 44 kcal and 3.1 g protein per 100 ml (mega-image.ro).
+    foods: [
+      {
+        name: /lapte|milk/,
+        amount: { value: 500, unit: "ml" },
+        kcal: [190, 260],
+        proteinG: [13, 19],
+        place: /mega/,
+      },
+    ],
   },
   {
     description: "ciorbă de burtă",

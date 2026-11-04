@@ -16,6 +16,11 @@ export type ExpectedFood = {
    */
   kcal: [number, number];
   proteinG: [number, number];
+  /**
+   * The restaurant or shop the food comes from, which decides whether its
+   * site is searched; null when there is none. Checked only when given.
+   */
+  place?: RegExp | null;
 };
 
 export type EvalCase = {
@@ -69,6 +74,18 @@ export function gradeCase(testCase: EvalCase, result: ParseResult): Grade {
     const [meal] = unmatched.splice(index, 1);
     const name = meal.fields.name;
 
+    if (food.place !== undefined) {
+      const fits =
+        food.place === null
+          ? meal.place === null
+          : meal.place !== null && food.place.test(plain(meal.place));
+      if (!fits) {
+        failures.push(
+          `${name}: place ${meal.place ?? "none"}, expected ${food.place ?? "none"}`,
+        );
+      }
+    }
+
     const parsed = parseMeal(meal.fields);
     if (!parsed.ok) {
       failures.push(
@@ -110,10 +127,11 @@ export function gradeCase(testCase: EvalCase, result: ParseResult): Grade {
   return { failures, found: result.meals.map(describeMeal) };
 }
 
-/** "Piept de pui: 150 g, 248 kcal, 46.5 g protein" */
-function describeMeal({ fields }: ParsedMeal): string {
+/** "Piept de pui: 150 g, 248 kcal, 46.5 g protein", with " (from KFC)" after a place's food. */
+function describeMeal({ fields, place }: ParsedMeal): string {
+  const name = place ? `${fields.name} (from ${place})` : fields.name;
   const parsed = parseMeal(fields);
-  if (!parsed.ok) return `${fields.name}: rejected by the form`;
+  if (!parsed.ok) return `${name}: rejected by the form`;
   const check = checkMeal(parsed.meal);
   const { facts, quantity: eaten } = parsed.meal;
   // What one serving is shows whether its values fit it: "1 sarma" at
@@ -121,9 +139,9 @@ function describeMeal({ fields }: ParsedMeal): string {
   const quantity =
     formatQuantity(eaten.amount, eaten.unit) +
     (facts.basis === "perServing" ? ` of “${facts.serving.label}”` : "");
-  if (!check.ok) return `${fields.name}: ${quantity}, ${check.error}`;
+  if (!check.ok) return `${name}: ${quantity}, ${check.error}`;
   const { kcal, proteinG } = check.nutrients;
-  return `${fields.name}: ${quantity}, ${formatNumber(Math.round(kcal))} kcal, ${formatNumber(Math.round(proteinG * 10) / 10)} g protein`;
+  return `${name}: ${quantity}, ${formatNumber(Math.round(kcal))} kcal, ${formatNumber(Math.round(proteinG * 10) / 10)} g protein`;
 }
 
 /** 0.5 l and 500 ml are the same amount. */

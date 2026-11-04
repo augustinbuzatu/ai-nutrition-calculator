@@ -1,7 +1,11 @@
+import { formatNumber } from "@/lib/format";
+import { roundTo } from "@/lib/math";
 import { BASES } from "@/lib/meals/form";
-import type { NutritionFacts } from "@/lib/nutrition/schemas";
+import { scaleNutrients } from "@/lib/nutrition/calculate";
+import type { NutritionFacts, Serving } from "@/lib/nutrition/schemas";
 import type { ParsedMeal } from "@/lib/parser/parse";
 import type { Database } from "@/lib/supabase/database.types";
+import type { PublishedFood } from "./published";
 
 // The foods cache: nutrition facts from trusted sources, found by name. Pure
 // functions: the database finds candidates, these decide what to use.
@@ -19,9 +23,9 @@ export type CachedFood = {
 };
 
 /**
- * A row of search_foods. The generated types call brand, serving_label and
- * source_url strings, but they can be null: the generator cannot tell for a
- * function's result.
+ * A row of search_foods. The generated types call brand, serving_label,
+ * serving_grams, serving_ml and source_url non-null, but they can be null: the
+ * generator cannot tell for a function's result.
  */
 type SearchRow = {
   name: string;
@@ -32,6 +36,8 @@ type SearchRow = {
   carbs_g: number;
   fat_g: number;
   serving_label: string | null;
+  serving_grams: number | null;
+  serving_ml: number | null;
   source: FoodSource;
   source_url: string | null;
   similarity: number;
@@ -45,29 +51,50 @@ export function toCachedFood(row: SearchRow): CachedFood | null {
     carbsG: row.carbs_g,
     fatG: row.fat_g,
   };
+  // What one serving is, with its weight or volume when published: values per
+  // 100 g then also serve food counted in pieces.
+  const serving: Serving | undefined = row.serving_label
+    ? {
+        label: row.serving_label,
+        ...(row.serving_grams ? { grams: row.serving_grams } : {}),
+        ...(row.serving_ml ? { ml: row.serving_ml } : {}),
+      }
+    : undefined;
   let facts: NutritionFacts;
   if (row.basis === "perServing") {
     // The database requires the label; without it the values mean nothing.
-    if (!row.serving_label) return null;
-    facts = {
-      basis: "perServing",
-      nutrients,
-      serving: { label: row.serving_label },
-    };
+    if (!serving) return null;
+    facts = { basis: "perServing", nutrients, serving };
   } else {
-    facts = { basis: row.basis, nutrients };
+    facts = serving
+      ? { basis: row.basis, nutrients, serving }
+      : { basis: row.basis, nutrients };
   }
-  const name =
-    row.brand && !row.name.toLowerCase().includes(row.brand.toLowerCase())
-      ? `${row.brand} ${row.name}`
-      : row.name;
   return {
-    name,
+    name: withBrand(row.name, row.brand),
     facts,
     source: row.source,
     sourceUrl: row.source_url,
     similarity: row.similarity,
   };
+}
+
+/** Values the agent just found, as the cache will return them next time. */
+export function publishedAsCached(food: PublishedFood): CachedFood {
+  return {
+    name: withBrand(food.name, food.place),
+    facts: food.facts,
+    source: "web",
+    sourceUrl: food.sourceUrl,
+    similarity: 1,
+  };
+}
+
+/** "Crispy Strips" by KFC -> "KFC Crispy Strips", without saying KFC twice. */
+function withBrand(name: string, brand: string | null): string {
+  return brand && !name.toLowerCase().includes(brand.toLowerCase())
+    ? `${brand} ${name}`
+    : name;
 }
 
 /**
@@ -110,30 +137,67 @@ function numbersIn(text: string): string {
 
 /**
  * The meal with the cached food's values instead of the model's, or null when
- * they do not fit how much was eaten: values per 100 g need an amount in grams,
- * per serving an amount in servings. The amount itself stays as described.
+ * they do not fit how much was eaten. The amount itself stays as described.
  */
 export function applyCachedFood(
   meal: ParsedMeal,
   food: CachedFood,
 ): ParsedMeal | null {
-  const units: readonly string[] = BASES[food.facts.basis].units;
-  if (!units.includes(meal.fields.unit)) return null;
-  const { nutrients } = food.facts;
+  const facts = factsFor(meal.fields.unit, food.facts);
+  if (!facts) return null;
+  const { nutrients } = facts;
   return {
     fields: {
       ...meal.fields,
       name: food.name,
-      basis: food.facts.basis,
-      servingLabel:
-        food.facts.basis === "perServing" ? food.facts.serving.label : "",
-      kcal: String(nutrients.kcal),
-      proteinG: String(nutrients.proteinG),
-      carbsG: String(nutrients.carbsG),
-      fatG: String(nutrients.fatG),
+      basis: facts.basis,
+      servingLabel: facts.basis === "perServing" ? facts.serving.label : "",
+      kcal: toField(nutrients.kcal),
+      proteinG: toField(nutrients.proteinG),
+      carbsG: toField(nutrients.carbsG),
+      fatG: toField(nutrients.fatG),
     },
     note: `Values from ${sourceName(food)}.`,
+    place: meal.place,
   };
+}
+
+/**
+ * The facts in a basis that fits `unit`, or null. Grams need values per 100 g
+ * and servings values per serving, as published; or, for servings, values per
+ * 100 g with what one serving weighs, which the app converts: KFC publishes
+ * its strips per 100 g and one strip as 30 g.
+ */
+function factsFor(unit: string, facts: NutritionFacts): NutritionFacts | null {
+  const units: readonly string[] = BASES[facts.basis].units;
+  if (units.includes(unit)) return facts;
+  if (unit !== "serving" || facts.basis === "perServing" || !facts.serving) {
+    return null;
+  }
+  const [size, sizeUnit] =
+    facts.basis === "per100g"
+      ? [facts.serving.grams, "g"]
+      : [facts.serving.ml, "ml"];
+  if (!size) return null;
+  const { label } = facts.serving;
+  const sized = `${formatNumber(size)}\u00a0${sizeUnit}`;
+  return {
+    basis: "perServing",
+    nutrients: scaleNutrients(facts.nutrients, size / 100),
+    // "1 buc., 30 g", unless the label already says how much.
+    serving: {
+      label: label
+        .replace(/\s/g, "")
+        .includes(`${formatNumber(size)}${sizeUnit}`)
+        ? label
+        : `${label}, ${sized}`,
+    },
+  };
+}
+
+// Two decimals are plenty for a form field, and hide floating-point noise.
+function toField(value: number): string {
+  return String(roundTo(value, 2));
 }
 
 function sourceName(food: CachedFood): string {

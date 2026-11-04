@@ -30,7 +30,7 @@ const chicken: MealFields = {
 
 const found = (...fields: MealFields[]): ParseResult => ({
   ok: true,
-  meals: fields.map((f) => ({ fields: f, note: null })),
+  meals: fields.map((f) => ({ fields: f, note: null, place: null })),
 });
 
 describe("gradeCase", () => {
@@ -129,6 +129,36 @@ describe("gradeCase", () => {
       failures: [],
       found: ["Ou fiert: 2 servings of “1 ou”, 156 kcal, 12.6 g protein"],
     });
+  });
+
+  it("checks the place a food comes from, when the case gives one", () => {
+    const fromPlace = (place: string | null): ParseResult => ({
+      ok: true,
+      meals: [{ fields: chicken, note: null, place }],
+    });
+    const atKfc = {
+      ...chickenCase,
+      foods: [{ ...chickenCase.foods[0], place: /kfc/ }],
+    };
+    const atHome = {
+      ...chickenCase,
+      foods: [{ ...chickenCase.foods[0], place: null }],
+    };
+
+    expect(gradeCase(atKfc, fromPlace("KFC România"))).toEqual({
+      failures: [],
+      found: [
+        "Piept de pui (from KFC România): 150 g, 248 kcal, 46.5 g protein",
+      ],
+    });
+    expect(gradeCase(atKfc, fromPlace(null)).failures).toEqual([
+      "Piept de pui: place none, expected /kfc/",
+    ]);
+    expect(gradeCase(atHome, fromPlace("Lidl")).failures).toEqual([
+      "Piept de pui: place Lidl, expected none",
+    ]);
+    // Without an expected place, any place passes.
+    expect(gradeCase(chickenCase, fromPlace("Lidl")).failures).toEqual([]);
   });
 
   it("reports servings where grams were given", () => {

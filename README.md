@@ -12,7 +12,7 @@ Log your meals in plain language, in English or Romanian, and get accurate calor
 LLMs are great at understanding language and bad at arithmetic, so this app splits the job:
 
 1. **Parse**: an LLM turns free text into structured data (food, amount, unit), enforced with Structured Outputs and validated with Zod.
-2. **Resolve**: nutrition values come from trusted sources: a local cache, official restaurant and shop data found through web search, USDA FoodData Central and Open Food Facts. The cache is wired in; until the other sources fill it, the LLM estimates typical values, and step 3 checks them.
+2. **Resolve**: nutrition values come from trusted sources: a local cache, official restaurant and shop data found through web search, USDA FoodData Central and Open Food Facts. The cache and the web search are wired in: a food from a restaurant or shop the description names gets the values that place publishes. Other food is still estimated by the LLM, and step 3 checks it.
 3. **Validate**: every value is checked against physical limits and the Atwater factors (4/4/9 kcal per gram of protein/carbs/fat).
 4. **Calculate**: all math is done by deterministic, unit-tested TypeScript. The model never does arithmetic.
 
@@ -41,7 +41,7 @@ Requires Node.js 22 or newer and a [Supabase](https://supabase.com) project (the
 
 3. Copy `.env.example` to `.env.local` and fill in your project's URL and **publishable** key (Dashboard → Project Settings → API Keys). Never use the secret key here.
 
-   To describe meals in words, also add an [OpenAI API key](https://platform.openai.com/api-keys) as `OPENAI_API_KEY`, and set a monthly budget for it under Settings → Limits. An [Anthropic key](https://console.anthropic.com/settings/keys) as `APP_ANTHROPIC_API_KEY` works too, with Claude Haiku; OpenAI wins when both are set. Everything else works without either.
+   To describe meals in words, also add an [OpenAI API key](https://platform.openai.com/api-keys) as `OPENAI_API_KEY`, and set a monthly budget for it under Settings → Limits. An [Anthropic key](https://console.anthropic.com/settings/keys) as `APP_ANTHROPIC_API_KEY` works too, with Claude Haiku; OpenAI wins when both are set. Everything else works without either. Looking food up on restaurant and shop sites needs the Anthropic key, with web search turned on in the Console (Settings → Privacy).
 
 4. In the dashboard, under Authentication → URL Configuration, set the Site URL to `http://localhost:3000` and add `http://localhost:3000/**` to the Redirect URLs, so the link in the confirmation email can come back to the app.
 
@@ -101,38 +101,75 @@ The proxy is a convenience, not the security boundary: the database checks every
 
 On the log page, each food the parser finds becomes a card to check. A card shows the estimate folded, with what the model assumed ("Assumed cooked weight."), and opens by itself when something needs fixing. Foods can also be added by hand, and without an API key that is all the page offers. All the cards are saved together, in one `INSERT`, and each keeps the description it came from, to evaluate the parser later.
 
-## Foods cache
+## Foods cache and web search
 
-`src/lib/foods/` is step 2: before a card shows the model's estimate, the `foods` table is searched for the same food. The table holds nutrition facts as their source publishes them; rows without an owner form a shared catalog that only the server writes.
+`src/lib/foods/` is step 2: before a card shows the model's estimate, the `foods` table is searched for the same food, and a restaurant's or shop's site after that. The table holds nutrition facts as their source publishes them; rows without an owner form a shared catalog that only the server writes.
 
 - **Fuzzy search with `pg_trgm`.** Names are compared by their three-letter pieces, after removing diacritics (`unaccent`), case and apostrophes. So "crispy strips kfc" finds "KFC Crispy Strips", and "ciorba de burta" finds "Ciorbă de burtă". A trigram index keeps the search fast as the cache grows, and `search_foods` runs as the caller, so RLS still decides which foods a user sees.
 - **A strict bar for using a match.** A wrong match is worse than an estimate. A cached food replaces the model's values only when its name is at least 0.8 alike, has the same numbers ("Lapte 1,5%" is not "Lapte 3,5%"), and has values that fit the amount (per 100 g for grams, per serving for servings). On real names, "KFC Crispy Strip" and "KFC Crispy Strips" score 0.84, "Coca-Cola" and "Coca-Cola Zero" 0.62.
 - **The card names the source** ("Values from kfc.ro."). If the cache cannot be searched, every food keeps its estimate.
 
-Nothing fills the catalog yet: the web-search agent, USDA and Open Food Facts will. The evals call the parser directly, so they still grade the model alone.
+### Looking food up on the place's own site
+
+When the description names a restaurant or shop ("3 bucăți de pui de la KFC"), the parser marks it as the food's `place`. "O farfurie mare de pui" has none and stays an estimate. If the cache does not hold the food, Claude Haiku 5.5 looks it up:
+
+- **It searches the place's official site**, when the app knows it (kfc.ro, mcdonalds.ro, mega-image.ro, lidl.ro and others in `places.ts`), and the whole web otherwise. Then it opens the product's page or the restaurant's nutrition PDF with `web_fetch`, and reports the values exactly as published.
+- **The app checks the answer, in code.** Pages it reads are untrusted, so instructions alone are not enough. The values count only when:
+  - the agent opened the page it names as the source;
+  - the page is on the place's official site;
+  - the energy, protein and serving size it reports appear on that page;
+  - they pass the same plausibility checks as the meal form.
+
+  The check exists because, in testing, the agent once answered from search snippets with 170 kcal per 100 g for strips that KFC publishes at 252.
+
+- **The app does the math.** KFC Romania publishes its chicken per 100 g and one piece as 75 g, so the app works out one piece: 186 kcal. The model never converts.
+- **The values are kept in the cache**, as the user's own food. The next time, the same food takes about 3 seconds instead of 10 to 20, and costs nothing. Private, so a wrong value found for one user never reaches another.
+- **Cost:** a new lookup costs about 1.5 to 5 US cents (a search is 1 cent, plus the pages read). If nothing is found, the card keeps the estimate and says so ("Not found on kfc.ro, so the values are estimated.").
+
+A known limit: the parser names the same food a little differently from one description to the next ("Pui KFC", "Pui KFC Original Recipe"), and below the 0.8 bar the cache misses it, so the agent searches again. Matching on the official product name the agent found would fix that.
+
+USDA FoodData Central and Open Food Facts will also fill the cache later. The evals call the parser directly, so they still grade the model alone.
 
 ## Evals
 
-Unit tests prove the code around the model works; they cannot tell whether the model reads meals well. `npm run eval` sends 22 descriptions to the real model and grades each answer the way the app would use it, through the meal form's rules and the calculator:
+Unit tests prove the code around the model works; they cannot tell whether the model reads meals well. `npm run eval` sends 25 descriptions to the real model and grades each answer the way the app would use it, through the meal form's rules and the calculator:
 
 - **Structure:** the right number of foods, and the amount when the description states it (150 g stays 150 g, "2 ouă" is 2 servings).
 - **Values:** what each food adds, in kcal and protein, within a range built from USDA FoodData Central values. The ranges are wide on purpose, to catch gross errors (kJ for kcal, raw rice read as cooked, a portion counted twice), not a few percent.
-- **Hard cases:** Romanian dishes (mici, sarmale, ciorbă de burtă), decimal commas, household measures, restaurants, text that tries to give the model orders, and text with no food at all.
+- **Hard cases:** Romanian dishes (mici, sarmale, ciorbă de burtă), decimal commas, household measures, restaurants and shops (whose names decide where to search), text that tries to give the model orders, and text with no food at all.
 
 The report lists what the model found for each case, with what one serving is ("2 servings of “1 ou”"), then the score, the tokens, the cost and the time per call. `EVAL_MODEL=claude-opus-5-5 npm run eval` compares another model, from either provider. The evals never run in CI: they cost money and their answers vary from run to run. The grading code itself is unit-tested.
 
 ### Baseline
 
-Claude Haiku 5.5 at medium effort, November 2026, over 8 runs:
+Claude Haiku 5.5 at medium effort, November 2026, 25 cases over 6 runs:
 
-| Cases passed (of 22)       | Cost per run | Time per call (average) |
-| -------------------------- | ------------ | ----------------------- |
-| 22 in 4 runs, 21 in 4 runs | about $0.006 | 2.0 to 2.5 s            |
+| Cases passed (of 25)                    | Cost per run | Time per call (average) |
+| --------------------------------------- | ------------ | ----------------------- |
+| 25 in 3 runs, 24 in 2 runs, 23 in 1 run | about $0.007 | 2.1 s                   |
+
+The parser also names the restaurant or shop a food comes from (`place`), which decides whether its site is searched. It was right in every case of every run: KFC, McDonald's for a Big Mac, Mega Image, and none for a home-made plate or a can of Coke.
 
 What still fails, now and then:
 
-- **3 KFC Crispy Strips** (3 runs of 8): the model gives about 7 g of protein per strip, where KFC publishes 9 to 13 g, depending on the country. The model does not know this fact well enough; the web-search agent will look it up instead.
-- **Values per 100 g given for a whole serving** (1 run of 8): an apple at 52 kcal instead of about 95. At low effort this happens in most runs, which is why the parser runs at medium.
+- **Chicken breast with the values of raw meat**, in "150 g chicken breast and 200 g cooked rice" (1 run of 6).
+- **Values per 100 g given for a whole serving** (1 run of 6): two eggs at 310 kcal instead of about 155. At low effort this happens in most runs, which is why the parser runs at medium.
+- **3 pieces of KFC chicken a little under the range** (1 run of 6): 390 kcal, where KFC Romania publishes 558. In the app, the web search replaces that estimate with KFC's own values.
+- **A serving label over the form's 50 characters** (1 run of 6), which the card then asks to shorten.
+
+The KFC Crispy Strips case used to fail. Its range came from strips sold elsewhere, at up to 47 g each. When the web search first read kfc.ro, it found that KFC Romania's strips weigh 30 g: 227 kcal and 17.8 g protein for three. The model's 21 g estimate had been closer than the eval, so the range now follows KFC Romania's published values.
+
+**Where the `place` rule goes matters.** Haiku turned out to be sensitive to any new sentence in its instructions:
+
+| Where the rule went                       | What it broke, on the old cases       |
+| ----------------------------------------- | ------------------------------------- |
+| a new line in the list of fields          | bread at 100 g per slice, 2 of 3 runs |
+| a shorter line, same place                | the apple, 4 of 6 runs                |
+| a last paragraph                          | raw rice read as cooked, 3 of 3 runs  |
+| nowhere (control)                         | nothing, but places mostly missed     |
+| **the field's description in the schema** | **nothing new, places all found**     |
+
+The rule now lives in the JSON schema, next to the field it describes.
 
 Telling the model that a serving's values are for the whole serving did not help. At medium effort, the score stayed the same (21.2 on average over 5 runs). At low effort, the mix-up moved from the apple to a portion of sarmale at 190 kcal, about the value of 100 g. The instructions stay as they were.
 
@@ -147,5 +184,6 @@ Work in progress: Phase 1 (MVP). What works today:
 - Meals can be described in plain language, in English or Romanian: each food becomes an editable card with the estimated values, and nothing is saved until the user confirms.
 - Foods can also be added by hand from a label or a menu (values per 100 g, per 100 ml or per serving), with a live preview and plausibility checks, then edited or deleted.
 - A foods cache with fuzzy search: when it holds the same food, its published values replace the model's estimate.
+- Food from a restaurant or shop the description names gets the values that place publishes, read from its site and kept in a cache; anything else is estimated.
 
-Next: a web-search agent that fills the cache with restaurant and shop data.
+Next: getting ready for launch (AI only for approved accounts, daily limits, a demo account, installing on a phone), then the deploy.
