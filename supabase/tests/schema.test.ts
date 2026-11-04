@@ -263,6 +263,42 @@ describe("food search", () => {
     expect(await search(alice, "supa crema", 0)).toHaveLength(1);
   });
 
+  it("returns what one serving weighs, so values per 100 g can serve pieces", async () => {
+    await db.query(
+      `insert into public.foods
+         (name, brand, basis, kcal, protein_g, carbs_g, fat_g, serving_label, serving_grams, source)
+       values ('Strips Nepicanti', 'KFC', 'per100g', 261, 22.46, 13.33, 13.08, '1 buc.', 30, 'web')`,
+    );
+    const alice = await createUser(db);
+    const { rows } = await asUser(db, alice, (tx) =>
+      tx.query<{ serving_label: string; serving_grams: string }>(
+        "select serving_label, serving_grams from public.search_foods('kfc strips nepicanti')",
+      ),
+    );
+    expect(rows[0]).toMatchObject({ serving_label: "1 buc." });
+    expect(Number(rows[0].serving_grams)).toBe(30);
+  });
+
+  it("finds the web values a user saved for themselves, and only for them", async () => {
+    const alice = await createUser(db);
+    const bob = await createUser(db);
+    const name = `Wrap ${randomUUID()}`;
+    // What the app saves after the agent reads a shop's page: a private food.
+    await asUser(db, alice, (tx) =>
+      tx.query(
+        `insert into public.foods
+           (name, brand, basis, kcal, protein_g, carbs_g, fat_g, source, source_url)
+         values ($1, 'Mega Image', 'per100g', 210, 9, 25, 8, 'web', 'https://www.mega-image.ro/p/1')`,
+        [name],
+      ),
+    );
+
+    expect((await search(alice, name)).map((food) => food.name)).toEqual([
+      name,
+    ]);
+    expect(await search(bob, name)).toEqual([]);
+  });
+
   it("stores the brand once, even when the name already includes it", async () => {
     const { rows } = await db.query<{ search_text: string }>(
       "select search_text from public.foods where name = $1",
