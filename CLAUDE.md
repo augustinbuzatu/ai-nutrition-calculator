@@ -33,10 +33,10 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `src/lib/goals/`: limits (mirror the DB constraints), Zod schema, `getGoals()`, `saveGoals()`, and `estimate.ts` (Mifflin-St Jeor calculator, browser only).
 - `src/lib/diary/`: `todayIn()` (today's date in the user's time zone), progress status for the stat tiles, `getTodaysDiary()`.
 - `src/lib/meals/`: the meal form's rules (`form.ts`, shared by the browser preview and the server), `submission.ts` (reads the log page's cards on the server, with Zod), `getMeal()`, and the `addMeals` / `updateMeal` / `deleteMeal` Server Actions.
-- `src/lib/parser/`: `parseMealDescription()` turns a description into the meal form's fields, one set per food, with OpenAI or Claude; the model's instructions are in `instructions.ts`, the choice of provider and model in `model.ts` (OpenAI wins when both keys are set). `describeMeal` is its Server Action, and `isParserConfigured()` checks for a key.
+- `src/lib/parser/`: `parseMealDescription()` turns a description into the meal form's fields, one set per food, with OpenAI or Claude, and the restaurant or shop each comes from (`place`, described on the schema field); the model's instructions are in `instructions.ts`, the choice of provider and model in `model.ts` (OpenAI wins when both keys are set). `describeMeal` is its Server Action, and `isParserConfigured()` checks for a key.
 - `evals/`: the parser's eval set (`cases.ts`, with USDA-based ranges), the grader (`grade.ts`, unit-tested in `npm test`) and the runner (`parser.eval.ts`, its own Vitest config).
 - `src/components/log-meal-form.tsx` and `meal-card.tsx`: the log page, where a description becomes one editable card per food.
-- `src/lib/foods/`: the foods cache, step 2 of reading a meal. `queries.ts` calls the `search_foods` RPC; `cache.ts` decides, purely, which match is the same food (`SAME_FOOD_SIMILARITY`, same numbers) and applies its values; `resolveMeals()` runs both for `describeMeal`, keeping estimates if the search fails.
+- `src/lib/foods/`: step 2 of reading a meal. `queries.ts` searches the cache (`search_foods`) and saves to it; `cache.ts` decides, purely, which match is the same food (`SAME_FOOD_SIMILARITY`, same numbers) and applies its values, working out one piece from values per 100 g; `agent.ts` is the web-search agent (Claude Haiku with Anthropic's `web_search` and `web_fetch`); `published.ts` checks its answer in code; `places.ts` maps chains to official sites. `resolveMeals()` runs cache, then agent for foods with a place, for `describeMeal`, keeping estimates when a step fails.
 - `src/lib/input.ts`: `parseNumberInput()` (strict numbers, decimal comma) and `isKeyOf()`.
 - `src/components/form-field.tsx`: `FormField` and `describedBy()`, used by every form.
 - `src/lib/nutrition/`: food schemas, nutrient scaling and summing (`calculate.ts`), plausibility checks (`check.ts`: physical limits, Atwater 4/4/9).
@@ -53,6 +53,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Number fields use `type="text"` with `inputMode` and strict parsing, never `z.coerce.number()`.
 - Keep Zod out of client components; client-side checks are plain functions.
 - The LLM only reads text and recalls typical values, never does math. Its answer is untrusted input: a strict schema with types only, then the meal form's rules, food by food.
+- The web-search agent reads pages the app does not control. Its values count only after code checks them (`checkPublishedFood`): the page was opened with `web_fetch`, it is on the place's official site, the energy, protein and serving size appear on it, and they are plausible. Never loosen these for a better score.
 - Tests never call a real model: use `MockLanguageModelV4` from `ai/test`, or stub `fetch` to check the request sent to the provider. Only `npm run eval` calls a real model, on request, never in CI.
 - After changing the parser's instructions, schema or model, run `npm run eval` and compare with the last report.
 - Comments explain why, briefly. Prettier formats everything, with LF line endings.
@@ -85,6 +86,10 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Trigram `word_similarity` scores "Coca-Cola" against "Coca-Cola Zero" as 1.0. Use `similarity`, a high bar and equal numbers before trusting a fuzzy match (`src/lib/foods/cache.ts`).
 - Generated types make every column a function returns non-null. Type RPC rows with their real nullability (`SearchRow` in `src/lib/foods/cache.ts`).
 - `foods.search_text` is a stored generated column: changing `food_search_text()` needs the column dropped and added again.
+- Haiku is sensitive to any new sentence in the parser's instructions: a `place` rule there broke bread, the apple or raw rice, depending on where it went. The same rule as the schema field's `.describe()` broke nothing. Prefer field descriptions for new fields, and measure over several eval runs.
+- Without being told to open a page, the agent answered from search snippets and invented values (170 kcal for strips published at 252). It must use `web_fetch`, and the checks reject answers from pages it never opened.
+- Web search needs the organization's setting in the Anthropic Console (Settings → Privacy). A lookup costs 1 cent per search plus the pages read: `maxContentTokens` caps a long PDF.
+- Restaurants publish per country: KFC Romania's strips weigh 30 g, elsewhere up to 47 g. Eval ranges for chains come from the Romanian site, with the source in a comment.
 - For a serving, the model sometimes gives the values of 100 g, mostly at low effort. Telling it that a serving's values are for the whole serving only moved the mix-up to other foods (README, Baseline). Judge instruction changes over several eval runs, at the effort the app uses.
 
 ## Verifying changes
@@ -114,16 +119,13 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Task 4.2, the log page: a description becomes editable cards, saved together.
   - Task 4.3, the eval set: 22 descriptions graded through the app's own rules (`npm run eval`).
   - Task 4.4, the eval baseline in the README: Claude Haiku 5.5 passes 21 or 22 of 22.
-- Stage 4, AI parser:
-  - Later: move to OpenAI once its key is in place, and compare it with the baseline. Augustin has about 3 USD of Anthropic credit; an eval run costs under a cent.
-- Stage 5, real data sources:
-  - 5.1: a cache in `foods` with fuzzy search (`pg_trgm`). Done: it replaces estimates, but nothing fills it yet.
-  - 5.2 (next): a web-search agent for restaurants and shops (e.g. KFC, a supermarket's product pages), saving what it finds in the 5.1 cache. Augustin's most important feature: propose its design (scope, tools, cost per search) before building it.
-  - 5.3: USDA FoodData Central.
-  - 5.4: Open Food Facts.
-  - 5.5: source badges in the UI.
-- Stage 6, launch:
-  - 6.1: deploy on Vercel. First, limit AI calls per user per day: anyone can sign up, and each call costs money. Augustin chose a demo account for recruiters; keys stay on the server (no bring-your-own-key for now).
-  - 6.2: PWA.
-  - 6.3: portfolio README.
-- Later: Google sign-in; Phase 2 (charts and history, barcode scanning, a Python FastAPI service for predictions).
+  - Task 5.1, a cache in `foods` with fuzzy search (`pg_trgm`).
+  - Final build, PR 1: the web-search agent. A food whose description names a restaurant or shop gets that place's published values, checked in code and kept in the cache as the user's own food. 25 eval cases; the baseline is in the README.
+- Final build (Augustin's plan, November 2026): three PRs that close a usable app; updates come later.
+  - PR 2 (next): launch readiness.
+    - AI only for accounts Augustin approves: a flag users cannot set themselves (not in `profiles`, which they can update), with a PGlite test.
+    - Daily limits per user (30 descriptions, 10 new web lookups) and for everyone together, enforced in Postgres.
+    - A "Try the demo" button that signs into a shared demo account, for recruiters.
+    - Installable on a phone (PWA manifest and icons), error and not-found pages.
+  - PR 3: deploy on Vercel, with a step-by-step checklist for what only Augustin can do (Vercel project, production Supabase and `supabase db push`, environment variables, auth URLs, web search on in the Console, a separate API key with a monthly limit). Then a smoke test on the live site and the portfolio README.
+- Later, as updates: matching cached foods on the official product name (the parser names a food differently from one description to the next); USDA FoodData Central; Open Food Facts; source badges; moving to OpenAI once its key is in place; Google sign-in; Phase 2 (charts and history, barcode scanning, a Python FastAPI service for predictions). Augustin has about 3 USD of Anthropic credit: an eval run costs under a cent, a web lookup 1.5 to 5 cents.
