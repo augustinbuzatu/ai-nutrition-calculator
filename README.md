@@ -12,7 +12,7 @@ Log your meals in plain language, in English or Romanian, and get accurate calor
 LLMs are great at understanding language and bad at arithmetic, so this app splits the job:
 
 1. **Parse**: an LLM turns free text into structured data (food, amount, unit), enforced with Structured Outputs and validated with Zod.
-2. **Resolve**: nutrition values come from trusted sources: a local cache, official restaurant and shop data found through web search, USDA FoodData Central and Open Food Facts. Until those are wired in, the LLM estimates typical values, and step 3 checks them.
+2. **Resolve**: nutrition values come from trusted sources: a local cache, official restaurant and shop data found through web search, USDA FoodData Central and Open Food Facts. The cache is wired in; until the other sources fill it, the LLM estimates typical values, and step 3 checks them.
 3. **Validate**: every value is checked against physical limits and the Atwater factors (4/4/9 kcal per gram of protein/carbs/fat).
 4. **Calculate**: all math is done by deterministic, unit-tested TypeScript. The model never does arithmetic.
 
@@ -71,7 +71,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build` on every push an
 The schema lives in `supabase/migrations/` as plain SQL, versioned with the code:
 
 - `profiles`: one per user, created at sign-up; daily goals stay empty until onboarding.
-- `foods`: nutrition facts as published (per 100 g, per 100 ml or per serving), either in the shared catalog or private to one user.
+- `foods`: nutrition facts as published (per 100 g, per 100 ml or per serving), either in the shared catalog or private to one user, searched by name with `search_foods` (see Foods cache).
 - `food_entries`: the food diary, stored as snapshots so later catalog edits never rewrite history.
 
 Row Level Security limits every query to the signed-in user's own rows. `supabase/tests/` runs the migrations in [PGlite](https://pglite.dev) (Postgres in WebAssembly) and checks those rules on every CI run, with no Docker or Supabase project needed.
@@ -100,6 +100,16 @@ The proxy is a convenience, not the security boundary: the database checks every
 - Switching providers is one line, since the AI SDK keeps the rest of the code the same. The Anthropic provider gets its key and address explicitly, never from `ANTHROPIC_API_KEY` or `ANTHROPIC_BASE_URL`: hosted dev environments often set those for other tools.
 
 On the log page, each food the parser finds becomes a card to check. A card shows the estimate folded, with what the model assumed ("Assumed cooked weight."), and opens by itself when something needs fixing. Foods can also be added by hand, and without an API key that is all the page offers. All the cards are saved together, in one `INSERT`, and each keeps the description it came from, to evaluate the parser later.
+
+## Foods cache
+
+`src/lib/foods/` is step 2: before a card shows the model's estimate, the `foods` table is searched for the same food. The table holds nutrition facts as their source publishes them; rows without an owner form a shared catalog that only the server writes.
+
+- **Fuzzy search with `pg_trgm`.** Names are compared by their three-letter pieces, after removing diacritics (`unaccent`), case and apostrophes. So "crispy strips kfc" finds "KFC Crispy Strips", and "ciorba de burta" finds "Ciorbă de burtă". A trigram index keeps the search fast as the cache grows, and `search_foods` runs as the caller, so RLS still decides which foods a user sees.
+- **A strict bar for using a match.** A wrong match is worse than an estimate. A cached food replaces the model's values only when its name is at least 0.8 alike, has the same numbers ("Lapte 1,5%" is not "Lapte 3,5%"), and has values that fit the amount (per 100 g for grams, per serving for servings). On real names, "KFC Crispy Strip" and "KFC Crispy Strips" score 0.84, "Coca-Cola" and "Coca-Cola Zero" 0.62.
+- **The card names the source** ("Values from kfc.ro."). If the cache cannot be searched, every food keeps its estimate.
+
+Nothing fills the catalog yet: the web-search agent, USDA and Open Food Facts will. The evals call the parser directly, so they still grade the model alone.
 
 ## Evals
 
@@ -136,5 +146,6 @@ Work in progress: Phase 1 (MVP). What works today:
 - The dashboard shows today's calories and protein against the goals, with progress bars, and lists today's meals. "Today" follows the user's time zone, not the server's.
 - Meals can be described in plain language, in English or Romanian: each food becomes an editable card with the estimated values, and nothing is saved until the user confirms.
 - Foods can also be added by hand from a label or a menu (values per 100 g, per 100 ml or per serving), with a live preview and plausibility checks, then edited or deleted.
+- A foods cache with fuzzy search: when it holds the same food, its published values replace the model's estimate.
 
-Next: a food cache, then a web-search agent for restaurant and shop data.
+Next: a web-search agent that fills the cache with restaurant and shop data.

@@ -36,6 +36,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - `src/lib/parser/`: `parseMealDescription()` turns a description into the meal form's fields, one set per food, with OpenAI or Claude; the model's instructions are in `instructions.ts`, the choice of provider and model in `model.ts` (OpenAI wins when both keys are set). `describeMeal` is its Server Action, and `isParserConfigured()` checks for a key.
 - `evals/`: the parser's eval set (`cases.ts`, with USDA-based ranges), the grader (`grade.ts`, unit-tested in `npm test`) and the runner (`parser.eval.ts`, its own Vitest config).
 - `src/components/log-meal-form.tsx` and `meal-card.tsx`: the log page, where a description becomes one editable card per food.
+- `src/lib/foods/`: the foods cache, step 2 of reading a meal. `queries.ts` calls the `search_foods` RPC; `cache.ts` decides, purely, which match is the same food (`SAME_FOOD_SIMILARITY`, same numbers) and applies its values; `resolveMeals()` runs both for `describeMeal`, keeping estimates if the search fails.
 - `src/lib/input.ts`: `parseNumberInput()` (strict numbers, decimal comma) and `isKeyOf()`.
 - `src/components/form-field.tsx`: `FormField` and `describedBy()`, used by every form.
 - `src/lib/nutrition/`: food schemas, nutrient scaling and summing (`calculate.ts`), plausibility checks (`check.ts`: physical limits, Atwater 4/4/9).
@@ -80,6 +81,10 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Keep the `ai` and `@ai-sdk/*` packages on matching releases: a provider built on a newer `@ai-sdk/provider` fails the type check.
 - Set Claude's effort in `providerOptions.anthropic` (medium, chosen with `npm run eval`). It overrides the top-level `reasoning`, which on Claude also asks for thinking summaries that nothing reads.
 - Under a coding agent, Vitest's default reporter hides what passing tests log: the eval config sets `reporters: ["default"]`, or a run where every case passes prints no report.
+- Extensions live in the `extensions` schema. Functions with `search_path = ''` must qualify them: `extensions.similarity`, `operator(extensions.%)`, `extensions.gin_trgm_ops`. PGlite loads extensions on request: add a new one to `createTestDatabase()` in `supabase/tests/database.ts`.
+- Trigram `word_similarity` scores "Coca-Cola" against "Coca-Cola Zero" as 1.0. Use `similarity`, a high bar and equal numbers before trusting a fuzzy match (`src/lib/foods/cache.ts`).
+- Generated types make every column a function returns non-null. Type RPC rows with their real nullability (`SearchRow` in `src/lib/foods/cache.ts`).
+- `foods.search_text` is a stored generated column: changing `food_search_text()` needs the column dropped and added again.
 - For a serving, the model sometimes gives the values of 100 g, mostly at low effort. Telling it that a serving's values are for the whole serving only moved the mix-up to other foods (README, Baseline). Judge instruction changes over several eval runs, at the effort the app uses.
 
 ## Verifying changes
@@ -90,6 +95,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   2. `npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,storage-api`
   3. Write `.env.local` from `npx supabase status -o env` (local keys only).
   4. Run `next dev` and drive the flows with Playwright (`/opt/node22/lib/node_modules/playwright`). Confirmation emails arrive in Mailpit at `http://127.0.0.1:54324`.
+     With `APP_ANTHROPIC_API_KEY` set, the AI flow runs on real Claude, at well under a cent per description. To test the cache, add catalog rows as the server would, through `docker exec -i supabase_db_ai-nutrition-calculator psql -U postgres`: rows without `created_by` form the shared catalog.
      To test the AI flow without a key, run a small fake of the Responses API (canned answers by keyword) and add `OPENAI_API_KEY=sk-fake` and `OPENAI_BASE_URL=http://127.0.0.1:4010/v1` to `.env.local`: the OpenAI provider reads `OPENAI_BASE_URL`.
   5. Run `npx supabase stop` when done.
 - Take screenshots at 360 and 390 px, in light and dark mode.
@@ -111,8 +117,8 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Stage 4, AI parser:
   - Later: move to OpenAI once its key is in place, and compare it with the baseline. Augustin has about 3 USD of Anthropic credit; an eval run costs under a cent.
 - Stage 5, real data sources:
-  - 5.1 (next): a cache in `foods` with fuzzy search (`pg_trgm`).
-  - 5.2: a web-search agent for restaurants and shops (e.g. KFC, a supermarket's product pages), saving what it finds in the 5.1 cache. Augustin's most important feature: propose its design (scope, tools, cost per search) before building it.
+  - 5.1: a cache in `foods` with fuzzy search (`pg_trgm`). Done: it replaces estimates, but nothing fills it yet.
+  - 5.2 (next): a web-search agent for restaurants and shops (e.g. KFC, a supermarket's product pages), saving what it finds in the 5.1 cache. Augustin's most important feature: propose its design (scope, tools, cost per search) before building it.
   - 5.3: USDA FoodData Central.
   - 5.4: Open Food Facts.
   - 5.5: source badges in the UI.
