@@ -193,8 +193,8 @@ export function LogMealForm({ canDescribe }: { canDescribe: boolean }) {
           <div>
             <h2 className="font-semibold">Check the values</h2>
             <p className="text-sm text-muted-foreground">
-              They are estimates from your description: fix anything that looks
-              off.
+              Unless a card names its source, they are estimates from your
+              description: fix anything that looks off.
             </p>
           </div>
         )}
