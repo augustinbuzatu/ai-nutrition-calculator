@@ -23,44 +23,39 @@ LLMs are great at understanding language and bad at arithmetic, so this app spli
 
 ## Getting started
 
-Requires Node.js 22 or newer and a [Supabase](https://supabase.com) project (the free plan is enough).
+On Windows, two steps:
 
-1. Install the dependencies:
+1. Get the code: on GitHub, **Code → Download ZIP**, and unzip it. Or `git clone` it.
+2. Double-click **`start.cmd`**. In VS Code, **Ctrl+Shift+B** does the same. It:
+   - installs Node.js with winget, after asking, if it is missing or older than 22;
+   - installs the dependencies, the first time and whenever they change;
+   - the first time, asks for an Anthropic API key, which stays on that computer in `.env.local`; press Enter to skip it, and meals are added by hand;
+   - starts the app and opens [http://localhost:3000](http://localhost:3000).
 
-   ```bash
-   npm ci
-   ```
+   If Windows asks whether to run a file from the internet, choose to run it.
 
-2. Create the tables in your Supabase project:
+On macOS or Linux, install Node.js 22 or newer, then run `npm run app`.
 
-   ```bash
-   npx supabase login
-   npx supabase link --project-ref <your-project-ref>
-   npx supabase db push
-   ```
+There is no Supabase account to create: every copy uses the maintainer's Supabase project, whose public settings are committed in `.env`. The publishable key there only allows what row level security allows, and a test keeps secrets out of that file.
 
-3. Copy `.env.example` to `.env.local` and fill in your project's URL and **publishable** key (Dashboard → Project Settings → API Keys). Never use the secret key here.
+### For the maintainer
 
-   To describe meals in words, also add an [OpenAI API key](https://platform.openai.com/api-keys) as `OPENAI_API_KEY`, and set a monthly budget for it under Settings → Limits. An [Anthropic key](https://console.anthropic.com/settings/keys) as `APP_ANTHROPIC_API_KEY` works too, with Claude Haiku; OpenAI wins when both are set. Everything else works without either. Looking food up on restaurant and shop sites needs the Anthropic key, with web search turned on in the Console (Settings → Privacy).
-
-4. In the dashboard, under Authentication → URL Configuration, set the Site URL to `http://localhost:3000` and add `http://localhost:3000/**` to the Redirect URLs, so the link in the confirmation email can come back to the app.
-
-5. Start the app and open [http://localhost:3000](http://localhost:3000):
-
-   ```bash
-   npm run dev
-   ```
+- **New migrations:** double-click `update-database.cmd`, or run `npm run db:push`. The first time it signs in to Supabase in the browser and asks for the database password. Then it links the project named in `.env` and applies `supabase/migrations/`.
+- **The Supabase dashboard,** under Authentication → URL Configuration: the Site URL, and `http://localhost:3000/**` among the Redirect URLs, so confirmation emails come back to local copies.
+- **The Anthropic Console:** web search on (Settings → Privacy), for the restaurant and shop lookups, and a monthly spend limit.
 
 ## Scripts
 
 | Command             | What it does                                                        |
 | ------------------- | ------------------------------------------------------------------- |
+| `npm run app`       | What `start.cmd` runs: checks, installs, and starts the app         |
 | `npm run dev`       | Starts the development server with hot reload                       |
 | `npm run build`     | Creates the production build                                        |
 | `npm run lint`      | Runs ESLint                                                         |
 | `npm run typecheck` | Generates route types, then runs the TypeScript compiler            |
 | `npm test`          | Runs the unit tests once (`npm run test:watch` reruns them on save) |
 | `npm run format`    | Formats every file with Prettier (`format:check` only checks)       |
+| `npm run db:push`   | Applies new migrations to the project in `.env` (maintainer)        |
 | `npm run db:types`  | Regenerates the database types from the linked Supabase project     |
 | `npm run eval`      | Grades the meal parser against the real model (needs an API key)    |
 
