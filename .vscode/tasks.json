@@ -1,0 +1,15 @@
+{
+  // Ctrl+Shift+B starts the app, the same way as double-clicking start.cmd.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start the app",
+      "type": "shell",
+      "command": "npm run app",
+      "windows": { "command": ".\\start.cmd" },
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    }
+  ]
+}

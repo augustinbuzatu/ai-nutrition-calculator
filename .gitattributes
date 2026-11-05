@@ -2,3 +2,7 @@
 # Without this, Git for Windows converts LF to CRLF on checkout and
 # formatters/linters report every file as changed.
 * text=auto eol=lf
+
+# Windows scripts: cmd.exe needs CRLF, and PowerShell 5.1 is happiest with it.
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
