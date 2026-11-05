@@ -12,7 +12,7 @@ Augustin's personal and portfolio project (Cybernetics student, ASE Bucharest; w
 - One PR per task, from the branch the session assigns, into `main`. Augustin merges, preferably with "Rebase and merge". Reset the branch onto `origin/main` before each new task.
 - Commits: Conventional Commits, small and topical, with `Augustin <augustinbuzatu@gmail.com>` as the only author and no trailers. PR descriptions end after the testing section, with no footer.
 - Never schedule check-ins (`send_later`, triggers) or subscribe to PR activity: they cost money. Augustin says when he has merged.
-- Never ask for keys, tokens or passwords in the chat. The `sb_secret_` key, `OPENAI_API_KEY` and `APP_ANTHROPIC_API_KEY` never go into code, `NEXT_PUBLIC_` variables, the chat or GitHub. `.env.local` is gitignored. `.env` is committed and holds only the shared Supabase project's public URL and publishable key; Augustin fills it (through `start.cmd` or on GitHub), never through the chat.
+- Never ask for keys, tokens or passwords in the chat. The `sb_secret_` key, `OPENAI_API_KEY` and `APP_ANTHROPIC_API_KEY` never go into code, `NEXT_PUBLIC_` variables, the chat or GitHub. `.env.local` is gitignored. `.env` is committed and holds only the shared Supabase project's public URL and publishable key (project `ngwijmxzhulvcijtoyzx`): both are public by design, unlike every other key.
 
 ## Stack
 
