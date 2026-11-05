@@ -12,7 +12,7 @@ Augustin's personal and portfolio project (Cybernetics student, ASE Bucharest; w
 - One PR per task, from the branch the session assigns, into `main`. Augustin merges, preferably with "Rebase and merge". Reset the branch onto `origin/main` before each new task.
 - Commits: Conventional Commits, small and topical, with `Augustin <augustinbuzatu@gmail.com>` as the only author and no trailers. PR descriptions end after the testing section, with no footer.
 - Never schedule check-ins (`send_later`, triggers) or subscribe to PR activity: they cost money. Augustin says when he has merged.
-- Never ask for keys, tokens or passwords in the chat. The `sb_secret_` key, `OPENAI_API_KEY` and `APP_ANTHROPIC_API_KEY` never go into code, `NEXT_PUBLIC_` variables, the chat or GitHub. `.env.local` is gitignored.
+- Never ask for keys, tokens or passwords in the chat. The `sb_secret_` key, `OPENAI_API_KEY` and `APP_ANTHROPIC_API_KEY` never go into code, `NEXT_PUBLIC_` variables, the chat or GitHub. `.env.local` is gitignored. `.env` is committed and holds only the shared Supabase project's public URL and publishable key; Augustin fills it (through `start.cmd` or on GitHub), never through the chat.
 
 ## Stack
 
@@ -20,12 +20,14 @@ Next.js 16 (App Router, Server Components, Server Actions, React Compiler) · Re
 
 ## Commands
 
-`npm ci` · `npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` (runs `next typegen` first) · `npm test` · `npm run format` / `format:check` · `npm run db:types` (regenerates `src/lib/supabase/database.types.ts` from the linked project) · `npm run eval` (grades the parser against the real model; needs `OPENAI_API_KEY` or `APP_ANTHROPIC_API_KEY`).
+`start.cmd` (Windows, double-click) or `npm run app`: checks Node.js, installs what is missing, asks once for the AI key, starts the app · `update-database.cmd` or `npm run db:push`: applies new migrations to the shared project · `npm ci` · `npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` (runs `next typegen` first) · `npm test` · `npm run format` / `format:check` · `npm run db:types` (regenerates `src/lib/supabase/database.types.ts` from the linked project) · `npm run eval` (grades the parser against the real model; needs `OPENAI_API_KEY` or `APP_ANTHROPIC_API_KEY`).
 
 CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five before pushing; `build` must pass without `.env.local`.
 
 ## Where things are
 
+- `start.cmd` → `scripts/run.ps1` (Node.js via winget, for Windows PowerShell 5.1) → `scripts/start.mjs` (port, `npm ci` when the lockfile changed, Supabase settings, AI key, `next dev`, browser). `update-database.cmd` → `scripts/update-database.mjs`. Their pure checks are in `scripts/setup.mjs`, tested in `npm test`, including a test that keeps secrets out of `.env`.
+- `.env`: committed, the shared Supabase project's public settings. `.env.local` (gitignored, from `.env.example`): the AI keys, and overrides such as a local Supabase.
 - `src/proxy.ts`: Next 16's name for middleware. Refreshes the Supabase session and sends signed-out visitors to `/login` (rules in `src/lib/auth/routes.ts`).
 - `src/lib/supabase/`: `createClient()` for the server, env config, generated database types.
 - `src/lib/auth/`: Server Actions (sign in, sign up, sign out), credential validation and error messages, `getCurrentUser()` / `requireUser()`.
@@ -90,6 +92,9 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - Without being told to open a page, the agent answered from search snippets and invented values (170 kcal for strips published at 252). It must use `web_fetch`, and the checks reject answers from pages it never opened.
 - Web search needs the organization's setting in the Anthropic Console (Settings → Privacy). A lookup costs 1 cent per search plus the pages read: `maxContentTokens` caps a long PDF.
 - Restaurants publish per country: KFC Romania's strips weigh 30 g, elsewhere up to 47 g. Eval ranges for chains come from the Romanian site, with the source in a comment.
+- Windows PowerShell 5.1 reads a `.ps1` without a BOM in the system code page: keep `scripts/run.ps1` ASCII-only. `.cmd` and `.ps1` files are CRLF (`.gitattributes`); everything else LF.
+- On Windows, Node cannot spawn `npm` (a `.cmd`) without `shell: true`. Run Next and the Supabase CLI with `process.execPath` and their JS entry files instead: no shell, same on every system.
+- `readline/promises` `question()` loses piped lines that arrive before it is called: read answers through the interface's async iterator (`scripts/start.mjs`).
 - For a serving, the model sometimes gives the values of 100 g, mostly at low effort. Telling it that a serving's values are for the whole serving only moved the mix-up to other foods (README, Baseline). Judge instruction changes over several eval runs, at the effort the app uses.
 
 ## Verifying changes
@@ -98,7 +103,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
 - End-to-end on a local Supabase (Docker works in the cloud container):
   1. Start `dockerd` in the background.
   2. `npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,storage-api`
-  3. Write `.env.local` from `npx supabase status -o env` (local keys only).
+  3. Write `.env.local` from `npx supabase status -o env` (local keys only): it overrides the shared project in `.env`. Delete it when done.
   4. Run `next dev` and drive the flows with Playwright (`/opt/node22/lib/node_modules/playwright`). Confirmation emails arrive in Mailpit at `http://127.0.0.1:54324`.
      With `APP_ANTHROPIC_API_KEY` set, the AI flow runs on real Claude, at well under a cent per description. To test the cache, add catalog rows as the server would, through `docker exec -i supabase_db_ai-nutrition-calculator psql -U postgres`: rows without `created_by` form the shared catalog.
      To test the AI flow without a key, run a small fake of the Responses API (canned answers by keyword) and add `OPENAI_API_KEY=sk-fake` and `OPENAI_BASE_URL=http://127.0.0.1:4010/v1` to `.env.local`: the OpenAI provider reads `OPENAI_BASE_URL`.
@@ -121,6 +126,7 @@ CI runs `format:check`, `lint`, `typecheck`, `test` and `build`. Run all five be
   - Task 4.4, the eval baseline in the README: Claude Haiku 5.5 passes 21 or 22 of 22.
   - Task 5.1, a cache in `foods` with fuzzy search (`pg_trgm`).
   - Final build, PR 1: the web-search agent. A food whose description names a restaurant or shop gets that place's published values, checked in code and kept in the cache as the user's own food. 25 eval cases; the baseline is in the README.
+  - Final build, PR 1.1: setup in two steps on Windows (download, double-click `start.cmd`), and one Supabase project for every copy (Augustin's choice: one project, Windows only, Node installed by winget after asking).
 - Final build (Augustin's plan, November 2026): three PRs that close a usable app; updates come later.
   - PR 2 (next): launch readiness.
     - AI only for accounts Augustin approves: a flag users cannot set themselves (not in `profiles`, which they can update), with a PGlite test.

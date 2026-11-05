@@ -13,6 +13,7 @@ export default defineConfig({
       "src/**/*.test.{ts,tsx}",
       "supabase/tests/**/*.test.ts",
       "evals/**/*.test.ts",
+      "scripts/**/*.test.mjs",
     ],
   },
 });

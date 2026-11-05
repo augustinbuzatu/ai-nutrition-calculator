@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "app": "node scripts/start.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -13,7 +14,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "eval": "vitest run --config vitest.evals.config.mts",
+    "db:push": "node scripts/update-database.mjs",
     "db:types": "supabase gen types typescript --linked --schema public > src/lib/supabase/database.types.ts && prettier --write src/lib/supabase/database.types.ts"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.87",
