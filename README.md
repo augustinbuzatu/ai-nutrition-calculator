@@ -43,6 +43,9 @@ There is no Supabase account to create: every copy uses the maintainer's Supabas
 - **New migrations:** double-click `update-database.cmd`, or run `npm run db:push`. The first time it signs in to Supabase in the browser and asks for the database password. Then it links the project named in `.env` and applies `supabase/migrations/`.
 - **The Supabase dashboard,** under Authentication → URL Configuration: the Site URL, and `http://localhost:3000/**` among the Redirect URLs, so confirmation emails come back to local copies.
 - **The Anthropic Console:** web search on (Settings → Privacy), for the restaurant and shop lookups, and a monthly spend limit.
+- **Turning the AI on for someone:** after they sign up, open Table Editor → `ai_access` → Insert row. Paste their `user_id` (Authentication → Users) and, optionally, a `note` such as "Mama". Deleting the row turns it off.
+- **The daily limits:** Table Editor → `ai_limits`, one row. Changes apply at once, with no deploy.
+- **The demo account:** create a user under Authentication → Add user (auto-confirmed), give it an `ai_access` row, and put its email and password in `DEMO_EMAIL` and `DEMO_PASSWORD` on the server. The login page then shows "Try the demo".
 
 ## Scripts
 
@@ -82,6 +85,25 @@ Email and password sign-in with Supabase Auth, kept in cookies so Server Compone
 - New accounts confirm their email first; the link lands on `/auth/confirm`, which exchanges its one-time code for a session.
 
 The proxy is a convenience, not the security boundary: the database checks every query with Row Level Security, whatever the app does.
+
+## Who may use the AI
+
+Anyone can sign up, and every AI call costs money, so the database decides who may use it, and how much:
+
+- **Only approved accounts.** The owner adds a row to `ai_access`. It is not a column in `profiles`, which users may update, so nobody can approve themselves; users cannot even read the table. Accounts without it get the manual form, with a note saying why.
+- **Daily limits, counted before each call.** By default, 30 descriptions and 10 web lookups per user, and 200 and 20 for everyone together, in `ai_limits`. `use_ai()` takes one use, or says why not, in one statement per counter. Its `uses < limit` check locks the row, so two requests at once cannot both take the last use. The day follows Romania's time zone.
+- **The log page shows what is left** ("29 descriptions left today"), and a card says when a lookup was skipped ("Today's lookups are used up, so kfc.ro was not searched and the values are estimated.").
+- **When the limits cannot be checked, there is no AI.** A refusal, an unexpected answer or a database error all leave the manual form.
+
+The worst a day can cost, at the default limits, is about 200 descriptions at 0.03 cents and 20 lookups at up to 5 cents: about $1.
+
+### The demo account
+
+"Try the demo" on the login page signs into one shared account, approved like any other and held to the same limits. Its email and password stay on the server (`DEMO_EMAIL`, `DEMO_PASSWORD`), and the button signs in with them, so visitors never see them. The page says it is shared: other visitors see what is logged there.
+
+### On a phone
+
+The app installs on a phone's home screen and opens full screen. It has a web app manifest (`app/manifest.ts`), icons drawn by `scripts/make-icons.mjs`, and Apple's settings for iPhones. Browsers fetch the manifest without cookies, so the proxy lets it through without a session. On a phone, the dashboard explains how to install it, for iPhone or Android, until dismissed.
 
 ## Meal parser
 
@@ -180,5 +202,7 @@ Work in progress: Phase 1 (MVP). What works today:
 - Foods can also be added by hand from a label or a menu (values per 100 g, per 100 ml or per serving), with a live preview and plausibility checks, then edited or deleted.
 - A foods cache with fuzzy search: when it holds the same food, its published values replace the model's estimate.
 - Food from a restaurant or shop the description names gets the values that place publishes, read from its site and kept in a cache; anything else is estimated.
+- The AI only for accounts the owner approves, within daily limits per user and for everyone, counted in the database; a shared demo account for visitors.
+- Installs on a phone's home screen; friendly pages for errors and missing pages.
 
-Next: getting ready for launch (AI only for approved accounts, daily limits, a demo account, installing on a phone), then the deploy.
+Next: the deploy, so the app is online for everyone the owner approves.
