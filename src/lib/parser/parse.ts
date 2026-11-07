@@ -72,19 +72,27 @@ const BASIS_FOR_UNIT = {
   serving: "perServing",
 } as const satisfies Record<Unit, keyof typeof BASES>;
 
+/**
+ * Why a description cannot be read, or null. Checked before anything that
+ * costs money: the model call, and the daily use it takes.
+ */
+export function descriptionProblem(text: string): string | null {
+  const description = text.trim();
+  if (description === "") return "Describe what you ate.";
+  // Long texts cost more and are rarely one meal.
+  if (description.length > MAX_DESCRIPTION_LENGTH) {
+    return `Use at most ${MAX_DESCRIPTION_LENGTH} characters.`;
+  }
+  return null;
+}
+
 export async function parseMealDescription(
   text: string,
   model: LanguageModel = parserModel(),
 ): Promise<ParseResult> {
+  const problem = descriptionProblem(text);
+  if (problem) return { ok: false, error: problem };
   const description = text.trim();
-  if (description === "") return { ok: false, error: "Describe what you ate." };
-  // Long texts cost more and are rarely one meal.
-  if (description.length > MAX_DESCRIPTION_LENGTH) {
-    return {
-      ok: false,
-      error: `Use at most ${MAX_DESCRIPTION_LENGTH} characters.`,
-    };
-  }
 
   let foods: ParsedFood[];
   try {

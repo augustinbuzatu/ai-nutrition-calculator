@@ -9,6 +9,72 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_access: {
+        Row: {
+          approved_at: string;
+          note: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          approved_at?: string;
+          note?: string | null;
+          user_id: string;
+        };
+        Update: {
+          approved_at?: string;
+          note?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      ai_limits: {
+        Row: {
+          descriptions_per_day: number;
+          descriptions_per_user: number;
+          lookups_per_day: number;
+          lookups_per_user: number;
+          only_row: boolean;
+        };
+        ComputedFields: never;
+        Insert: {
+          descriptions_per_day?: number;
+          descriptions_per_user?: number;
+          lookups_per_day?: number;
+          lookups_per_user?: number;
+          only_row?: boolean;
+        };
+        Update: {
+          descriptions_per_day?: number;
+          descriptions_per_user?: number;
+          lookups_per_day?: number;
+          lookups_per_user?: number;
+          only_row?: boolean;
+        };
+        Relationships: [];
+      };
+      ai_usage: {
+        Row: {
+          day: string;
+          kind: Database["public"]["Enums"]["ai_use"];
+          user_id: string | null;
+          uses: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          day: string;
+          kind: Database["public"]["Enums"]["ai_use"];
+          user_id?: string | null;
+          uses?: number;
+        };
+        Update: {
+          day?: string;
+          kind?: Database["public"]["Enums"]["ai_use"];
+          user_id?: string | null;
+          uses?: number;
+        };
+        Relationships: [];
+      };
       food_entries: {
         Row: {
           carbs_g: number;
@@ -154,6 +220,15 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      ai_allowance: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          approved: boolean;
+          descriptions_left: number;
+          lookups_left: number;
+        }[];
+      };
+      ai_day: { Args: Record<PropertyKey, never>; Returns: string };
       food_search_text: {
         Args: { brand: string; name: string };
         Returns: string;
@@ -177,8 +252,13 @@ export type Database = {
           source_url: string;
         }[];
       };
+      use_ai: {
+        Args: { use_kind: Database["public"]["Enums"]["ai_use"] };
+        Returns: string;
+      };
     };
     Enums: {
+      ai_use: "description" | "lookup";
       food_source: "usda" | "openfoodfacts" | "web" | "ai_estimate" | "user";
       nutrition_basis: "per100g" | "per100ml" | "perServing";
       quantity_unit: "g" | "kg" | "ml" | "l" | "serving";
@@ -309,6 +389,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ai_use: ["description", "lookup"],
       food_source: ["usda", "openfoodfacts", "web", "ai_estimate", "user"],
       nutrition_basis: ["per100g", "per100ml", "perServing"],
       quantity_unit: ["g", "kg", "ml", "l", "serving"],
