@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Target } from "lucide-react";
+import { InstallHint } from "@/components/install-hint";
 import { LogMealButton } from "@/components/log-meal-button";
 import { MealList } from "@/components/meal-list";
 import { StatTile } from "@/components/stat-tile";
@@ -68,6 +69,8 @@ export default async function DashboardPage() {
         </h2>
         <MealList entries={diary.entries} />
       </section>
+
+      <InstallHint />
 
       <LogMealButton />
     </div>
