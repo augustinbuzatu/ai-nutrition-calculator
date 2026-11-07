@@ -16,6 +16,12 @@ describe("getAuthRedirect", () => {
     },
   );
 
+  it("serves the web app manifest to anyone, which phones fetch without cookies", () => {
+    expect(getAuthRedirect("/manifest.webmanifest", false)).toBeNull();
+    expect(getAuthRedirect("/manifest.webmanifest", true)).toBeNull();
+    expect(getAuthRedirect("/manifest.webmanifest-not", false)).toBe("/login");
+  });
+
   it("does not make a page public just because its path starts with /login", () => {
     expect(getAuthRedirect("/login-history", false)).toBe("/login");
   });

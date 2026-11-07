@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   },
   description:
     "Log meals in plain language and get accurate calories and macros. The AI parses, the code calculates.",
+  // Added to an iPhone's home screen, the app opens full screen, named
+  // "Nutrition"; the icon is app/apple-icon.png.
+  appleWebApp: { capable: true, title: "Nutrition", statusBarStyle: "default" },
 };
 
 // Colors the mobile browser bar to match the page background (see --background in globals.css).

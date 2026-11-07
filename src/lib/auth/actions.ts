@@ -11,6 +11,7 @@ import {
   signInSchema,
   signUpSchema,
 } from "./credentials";
+import { demoCredentials } from "./demo";
 
 // Server Actions are public HTTP endpoints: anyone can call them with any
 // data, so each one validates its input on the server, whatever the form checked.
@@ -58,6 +59,20 @@ export async function signUp(
     };
   }
 
+  revalidatePath("/", "layout");
+  redirect("/");
+}
+
+/** Signs into the shared demo account, with credentials only the server knows. */
+export async function signInAsDemo() {
+  const credentials = demoCredentials();
+  if (!credentials) redirect("/login");
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword(credentials);
+  if (error) {
+    console.error("The demo account could not sign in:", error);
+    redirect("/login?error=demo");
+  }
   revalidatePath("/", "layout");
   redirect("/");
 }

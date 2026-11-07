@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { takeAiUse } from "@/lib/ai/access";
 import type { ParsedMeal } from "@/lib/parser/parse";
 import { findPublishedFood, isAgentConfigured } from "./agent";
 import type { CachedFood } from "./cache";
@@ -10,6 +11,7 @@ import { resolveMeals } from "./resolve";
 // resolveMeals does with their answers. supabase/tests covers the search,
 // agent.test.ts and published.test.ts the agent.
 vi.mock("./queries", () => ({ searchFoods: vi.fn(), saveFood: vi.fn() }));
+vi.mock("@/lib/ai/access", () => ({ takeAiUse: vi.fn() }));
 vi.mock("./agent", () => ({
   findPublishedFood: vi.fn(),
   isAgentConfigured: vi.fn(),
@@ -58,6 +60,7 @@ const published: PublishedFood = {
 beforeEach(() => {
   vi.mocked(searchFoods).mockResolvedValue([]);
   vi.mocked(isAgentConfigured).mockReturnValue(true);
+  vi.mocked(takeAiUse).mockResolvedValue({ ok: true });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -164,6 +167,37 @@ describe("resolveMeals", () => {
       estimate("KFC Crispy Strips"),
     ]);
     expect(console.error).toHaveBeenCalledOnce();
+  });
+
+  it("takes one of the day's lookups for each web search, and only then", async () => {
+    vi.mocked(findPublishedFood).mockResolvedValue({
+      ok: false,
+      reason: "not-found",
+    });
+    vi.mocked(searchFoods).mockImplementation(async (name) =>
+      name === "KFC Crispy Strips" ? [strips] : [],
+    );
+
+    await resolveMeals([
+      estimate("KFC Crispy Strips", "KFC"), // in the cache: no lookup
+      estimate("Piept de pui"), // no place: no lookup
+      estimate("KFC Twister", "KFC"),
+    ]);
+
+    expect(takeAiUse).toHaveBeenCalledTimes(1);
+    expect(takeAiUse).toHaveBeenCalledWith("lookup");
+  });
+
+  it("keeps the estimate, without searching, once the lookups are used up", async () => {
+    vi.mocked(takeAiUse).mockResolvedValue({ ok: false, reason: "user_limit" });
+
+    const [meal] = await resolveMeals([estimate("KFC Twister", "KFC")]);
+
+    expect(findPublishedFood).not.toHaveBeenCalled();
+    expect(meal.fields).toEqual(estimate("KFC Twister", "KFC").fields);
+    expect(meal.note).toBe(
+      "Assumed regular strips. Today's lookups are used up, so kfc.ro was not searched and the values are estimated.",
+    );
   });
 
   it("does not search the web without the Anthropic key", async () => {

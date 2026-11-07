@@ -1,3 +1,5 @@
+import { takeAiUse } from "@/lib/ai/access";
+import { lookupRefusal } from "@/lib/ai/limits";
 import type { ParsedMeal } from "@/lib/parser/parse";
 import { findPublishedFood, isAgentConfigured } from "./agent";
 import { applyCachedFood, findSameFood, publishedAsCached } from "./cache";
@@ -23,6 +25,9 @@ async function resolveMeal(meal: ParsedMeal): Promise<ParsedMeal> {
   const { place } = meal;
   if (!place || !isAgentConfigured()) return meal;
   const where = officialSites(place)?.[0] ?? place;
+  // A web lookup costs up to 5 cents: it takes one of the day's lookups.
+  const use = await takeAiUse("lookup");
+  if (!use.ok) return withNote(meal, lookupRefusal(use.reason, where));
   const published = await findPublishedFood({ ...meal, place });
   if (!published.ok) {
     return withNote(

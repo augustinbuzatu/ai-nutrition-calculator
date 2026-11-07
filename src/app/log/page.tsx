@@ -4,6 +4,8 @@ import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
 import { LogMealForm } from "@/components/log-meal-form";
 import { buttonVariants } from "@/components/ui/button";
+import { getAiAllowance } from "@/lib/ai/access";
+import { NO_DESCRIPTIONS_LEFT, descriptionRefusal } from "@/lib/ai/limits";
 import { isParserConfigured } from "@/lib/parser/parse";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +22,19 @@ export default async function LogMealPage() {
   // Checks for an AI key on each request, not once at build time: CI builds
   // without one.
   await connection();
-  const canDescribe = isParserConfigured();
+  // The model only for approved accounts with descriptions left today; the
+  // database counts them again when one is used.
+  const allowance = isParserConfigured() ? await getAiAllowance() : null;
+  const canDescribe = Boolean(
+    allowance?.approved && allowance.descriptionsLeft > 0,
+  );
+  const refusal = !allowance
+    ? null
+    : !allowance.approved
+      ? descriptionRefusal("not_approved")
+      : !canDescribe
+        ? NO_DESCRIPTIONS_LEFT
+        : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -31,7 +45,19 @@ export default async function LogMealPage() {
             ? "Describe what you ate, or add a food by hand from its label."
             : "Copy the values from the label or the menu."}
         </p>
+        {canDescribe && allowance && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {allowance.descriptionsLeft === 1
+              ? "1 description left today."
+              : `${allowance.descriptionsLeft} descriptions left today.`}
+          </p>
+        )}
       </div>
+      {refusal && (
+        <p role="status" className="rounded-lg bg-muted p-4 text-sm">
+          {refusal}
+        </p>
+      )}
       <LogMealForm canDescribe={canDescribe} />
       <Link
         href="/"
